@@ -68,14 +68,95 @@ END_INPUT       LEA     endInput, A1        *Prompt input for end address
                 CMP.B   #1, D2              *Check D2 error flag, if errored go back to start
                 BEQ     END_INPUT
                 
+                JSR     ADDRESS_DIFFERENCE_CHECK     *Jump to subroutine for checking difference in address (end <= start)
+                
+                CMP.B   #1, D2              *Check D2 error flag, if errored go back to start
+                BEQ     END_INPUT
+                
                 SUBA.L  A1, A1              *Clear A1 buffer
-                MOVE.L  D5, A6              *Load accepted ENDING address into A5
+                MOVE.L  D5, A6              *Load accepted ENDING address into A6
 
+
+                CLR.L   D5
+                
+                
+DECODE          MOVE.L  A5, D3
+                MOVE.B  #8, D4                
+                JSR     DISPLAY_ADDRESS
+                MOVE.W  (A5), D5
+                MOVE.W  D5, D3
+                
+OP_NOP          CMP.W   #NOP, D5
+                BNE     OP_RTS
+                JSR     PRT_NOP
+                JMP     DECODE
+
+OP_RTS          CMP.W   #RTS, D5
+                BNE     OP_RTS
+                JSR     PRT_RTS
+                JMP     DECODE
+
+
+                
                 
               SIMHALT  
 *================================================================================================================================================
 *SUBROUTINE SECTION
 *================================================================================================================================================
+
+MASK_5_TO_0         ANDI.L  #mask_5to0, D3
+
+MASK_7_TO_0         ANDI.L  #mask_7to0, D3
+
+MASK_10_5_TO_0      ANDI.L  #mask_10and5to0, D3
+
+MASK_11_TO_9_5_TO_0     ANDI.L  #mask_11to9and5to0, D3
+
+MASK_11_TO_9_5_2_TO_0     ANDI.L  #mask_11to9_5and2to0, D3
+
+
+MASK_13_TO_0        ANDI.L  #mask_13to0, D3
+
+MASK_13_TO_9_5_TO_0     ANDI.L  #mask_13to9and5to0, D3
+
+
+
+DISPLAY_ADDRESS     SUB.B   #1, D4
+                    MOVE.B  D4, D5
+                    MOVE.L  D3, D6
+                    MULS    #4, D5
+                    LSR.L   D5, D6
+                    MOVE.L  D6, D1
+                    JSR     HEX_CHAR_TO_ASCII
+                    CMP.B   #0, D4
+                    BNE     DISPLAY_ADDRESS
+                    CLR.L   D1
+                    CLR.L   D6
+                    CLR.L   D3
+                    RTS
+                    
+HEX_CHAR_TO_ASCII   ANDI.L  #bitmaskConversion, D1
+                    CMP.B   #$A, D1
+                    BLT     HEX_NUM_TO_ASCII
+                    ADD.B   #$37, D1
+                    MOVE.B  #6, D0
+                    TRAP    #15
+                    RTS
+                    
+HEX_NUM_TO_ASCII    ADD.B   #$30, D1
+                    MOVE.B  #6, D0
+                    TRAP    #15
+                    RTS
+                    
+
+
+*--------------------------------------------------
+*Check for difference in address (end <= start)
+ADDRESS_DIFFERENCE_CHECK    CMP.L   A5, D5
+                            BLE     ADDRESS_DIFFERENCE_ERROR
+                            MOVE.B  #0, D2              *Set error flag as okay
+                            RTS
+
 
 *--------------------------------------------------
 *Check for out of range address
@@ -83,7 +164,7 @@ ADDRESS_RANGE_CHECK     CMP.L   #$FFFFFF, D5        *Check > FFFFFF address
                         BGT     ADDRESS_RANGE_ERROR
                         CMP.L   #$1000, D5          *Check < 1000 address
                         BLT     ADDRESS_RANGE_ERROR
-                        MOVE.B  #0, D2              *Set error flag
+                        MOVE.B  #0, D2              *Set error flag as okay
                         RTS
 
 *--------------------------------------------------
@@ -156,6 +237,15 @@ ADDRESS_RANGE_ERROR     LEA     addressRangeError, A1
 
 
 *--------------------------------------------------
+*Display error message for address difference (end <= start) and set error flag  
+ADDRESS_DIFFERENCE_ERROR    LEA     addressDifferentError, A1
+                            MOVE.B  #14, D0
+                            TRAP    #15
+                            MOVE.B  #1, D2      *use D2 as a flag to check input
+                            RTS   
+                            
+
+*--------------------------------------------------
 *Properly configure address 
 ADDRESS_CONFIGURE   MOVE.B  (A1), D3    *put the converted Hex value into D3, this is in Byte so 0x0n => need to remove the preceding 0(nibble size) by bit shifting
                     MOVE.B  D1, D4      *move the current position of the converted Hex value to D4 buffer
@@ -167,6 +257,23 @@ ADDRESS_CONFIGURE   MOVE.B  (A1), D3    *put the converted Hex value into D3, th
                     RTS
 
 
+
+
+PRT_NOP     LEA     PRINT_NOP, A1
+            JSR     DISPLAY_OP
+            RTS
+
+PRT_RTS     LEA     PRINT_RTS, A1
+            JSR     DISPLAY_OP
+            RTS
+
+*--------------------------------------------------
+*Print out OpCode and increment address pointer 
+DISPLAY_OP      MOVE.B  #14, D0
+                TRAP    #15
+                ADDQ.L  #2, A5      *increment address pointer, word size   [CHECK LATER]
+                RTS
+     
      
 *=============================================================================================================================================================
 * Put variables and constants here
@@ -177,10 +284,28 @@ welcomeMsg      DC.B    'Welcome to the 68K Disassembler', CR, LF, 0
 startInput      DC.B    'Please enter starting address in Hex: ', 0
 endInput        DC.B    'Please enter ending address in Hex: ', 0
 typeInputError  DC.B    'ERROR: Entered address NOT in Hex', CR, LF, 0
-addressRangeError   DC.B    'ERROR: Address is out of range (1000 to FFFFFF)', CR, LF, 0
+addressRangeError       DC.B    'ERROR: Address is out of range (1000 to FFFFFF)', CR, LF, 0
+addressDifferentError   DC.B    'ERROR: Ending address must be larger than Starting address', CR, LF, 0
+
+
+bitmaskConversion           EQU       $0000000F
+mask_5to0                   EQU       %1111111111000000
+mask_7to0                   EQU       %1111111100000000
+mask_10and5to0              EQU       %1111101111000000
+mask_11to9and5to0           EQU       %1111000111000000  
+mask_11to9_5and2to0         EQU       %1111000111011000
+mask_13to0                  EQU       %1100000000000000
+mask_13to9and5to0           EQU       %1100000111000000
+
                     
-CHECK           DC.B    'CHECK', 0
+NOP             EQU     $4E71
+RTS             EQU     $4E75
+
+
+PRINT_NOP       DC.B    '   NOP     ', CR, LF, 0
+PRINT_RTS       DC.B    '   RTS     ', CR, LF, 0
     END    START        ; last line of source
+
 
 
 *~Font name~Courier New~
