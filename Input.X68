@@ -6,7 +6,7 @@
 *
 * Update     :  12/02/2017 (v1.1) - Tien Huynh
 *                   + Add current address display
-*                   + Decode NOP, RTS, JSR, ASR, ASL, NEG, ORI, CMPI                
+*                   + Decode NOP, RTS, JSR, ASR, ASL, NEG, ORI, CMPI, DATA, BRA, BCS, BGE, BLT, BVC                
 *-----------------------------------------------------------
 
 
@@ -146,7 +146,20 @@ MASK_7_TO_0     MOVE.W  D5, D3              *D3 as buffer for masking
                 CMP.W   #CMPI, D3    *Check for CMPI
                 BEQ     OP_CMPI
 
-
+                CMP.W   #BRA, D3     *Check for BRA
+                BEQ     OP_BRA
+                
+                CMP.W   #BCS, D3     *Check for BCS
+                BEQ     OP_BCS
+                
+                CMP.W   #BGE, D3     *Check for BGE
+                BEQ     OP_BGE
+                
+                CMP.W   #BLT, D3     *Check for BLT
+                BEQ     OP_BLT
+                
+                CMP.W   #BVC, D3    *Check for BVC
+                BEQ     OP_CMPI
 
 
 
@@ -237,6 +250,48 @@ OP_CMPI         JSR     SIZE_7_TO_6     *check operand size (B, W, L)
                 ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
                 JMP     DECODE                                  
 
+*--------------------------------------------------
+*Print OpCode BRA, go back to DECODE loop           [NEED EA]      
+OP_BRA          JSR     SIZE_7_TO_0     *check operand size (B, W, L)
+                LEA     PRINT_BRA, A1   *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
+                JMP     DECODE 
+
+*--------------------------------------------------
+*Print OpCode BCS, go back to DECODE loop           [NEED EA]      
+OP_BCS          JSR     SIZE_7_TO_0     *check operand size (B, W, L)
+                LEA     PRINT_BCS, A1   *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
+                JMP     DECODE
+                
+                
+*--------------------------------------------------
+*Print OpCode BGE, go back to DECODE loop           [NEED EA]      
+OP_BGE          JSR     SIZE_7_TO_0     *check operand size (B, W, L)
+                LEA     PRINT_BGE, A1   *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
+                JMP     DECODE
+
+
+*--------------------------------------------------
+*Print OpCode BLT, go back to DECODE loop           [NEED EA]      
+OP_BLT          JSR     SIZE_7_TO_0     *check operand size (B, W, L)
+                LEA     PRINT_BLT, A1   *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
+                JMP     DECODE
+
+*--------------------------------------------------
+*Print OpCode BVC, go back to DECODE loop           [NEED EA]      
+OP_BVC          JSR     SIZE_7_TO_0     *check operand size (B, W, L)
+                LEA     PRINT_BVC, A1   *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
+                JMP     DECODE
+
 
 *--------------------------------------------------
 *Determine size (B, W, or L) of OpCodes whose size bits are in bit 7 and 6  
@@ -250,6 +305,18 @@ SIZE_7_TO_6     MOVE.W  D5, D3                  *D3 as buffer for masking
                 BEQ     LOAD_L_SIZE
                 MOVE.B  #1, D2                  *[CHECK LAST CASE (11)] D2 flags unknown size
                 RTS
+
+
+*--------------------------------------------------
+*Determine size (B, W, or L) of OpCodes whose size bits are determined based on bit 7 and 0 (displacement field)  
+SIZE_7_TO_0     MOVE.W  D5, D3                  *D3 as buffer for masking
+                ANDI.L  #maskExcept_7to0, D3    *mask everything except the size bit 7-0
+                CMP.W   #sizeW_7to0, D3         *check for size W (0x00 i.e. all 0s in bit 7-0)
+                BEQ     LOAD_W_SIZE
+                CMP.W   #sizeL_7to0, D3         *check for size L (0xFF i.e. all 1s in bit 7-0)
+                BEQ     LOAD_L_SIZE
+                JMP     LOAD_B_SIZE             *else it is size B    
+
 
 LOAD_B_SIZE     LEA     PRINT_B, A2
                 RTS
@@ -466,11 +533,16 @@ mask_13to0                  EQU       %1100000000000000
 mask_13to9and5to0           EQU       %1100000111000000
 
 maskExcept_7to6             EQU       %0000000011000000
+maskExcept_7to0             EQU       %0000000011111111  
 
 
 sizeB_7to6          EQU     %0000000000000000
 sizeW_7to6          EQU     %0000000001000000  
 sizeL_7to6          EQU     %0000000010000000       
+
+sizeW_7to0          EQU     %0000000000000000
+sizeL_7to0          EQU     %0000000011111111
+
                     
 NOP             EQU     $4E71
 RTS             EQU     $4E75
@@ -482,22 +554,11 @@ ASL             EQU     %1110000100000000
 NEG             EQU     %0100010000000000
 ORI             EQU     %0000000000000000   *Immediate Data follow
 CMPI            EQU     %0000110000000000   *Immediate Data follow
-*BRA_B      CHECK
-BRA_W           EQU     %0110000000000000   *CHECK
-BRA_L           EQU     %0110000011111111   *CHECK    
-*BCS_B      CHECK
-BCS_W           EQU     %0110010100000000   *CHECK
-BCS_L           EQU     %0110010111111111   *CHECK
-*BGE_B      CHECK
-BGE_W           EQU     %0110110000000000   *CHECK
-BGE_L           EQU     %0110110011111111   *CHECK
-*BLT_B      CHECK
-BLT_W           EQU     %0110110100000000   *CHECK
-BLT_L           EQU     %0110110111111111   *CHECK
-*BVC_B      CHECK
-BVC_W           EQU     %0110100000000000   *CHECK
-BVC_L           EQU     %0110100011111111   *CHECK
-
+BRA             EQU     %0110000000000000   *CHECK  
+BCS             EQU     %0110010100000000   *CHECK
+BGE             EQU     %0110110000000000   *CHECK
+BLT             EQU     %0110110100000000   *CHECK
+BVC             EQU     %0110100000000000   *CHECK
 
 
 PRINT_DATA      DC.B    '   DATA', 0
@@ -509,6 +570,11 @@ PRINT_ASL       DC.B    '   ASL', 0
 PRINT_NEG       DC.B    '   NEG', 0
 PRINT_ORI       DC.B    '   ORI', 0
 PRINT_CMPI      DC.B    '   CMPI', 0
+PRINT_BRA       DC.B    '   BRA', 0
+PRINT_BCS       DC.B    '   BCS', 0
+PRINT_BGE       DC.B    '   BGE', 0
+PRINT_BLT       DC.B    '   BLT', 0
+PRINT_BVC       DC.B    '   BVC', 0
 
 SIZE_DEFAULT    DC.B    '       ', 0
 PRINT_B         DC.B    '.B     ', 0
@@ -517,6 +583,8 @@ PRINT_L         DC.B    '.L     ', 0
 NEWLINE         DC.B    CR, LF, 0
 
     END    START        ; last line of source
+
+
 
 
 
