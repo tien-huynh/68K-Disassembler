@@ -88,24 +88,34 @@ END_INPUT       LEA     endInput, A1        *Prompt input for end address
 DECODE          CLR.L   D3                  *clear buffers
                 CLR.L   D5
                 CLR.L   D6
+                CLR.L   D2
+                SUBA.L  A1, A1              *Clear A1 buffer
+
                 MOVE.L  A5, D3              *set up buffers for DISPLAY_ADDRESS (See subroutine for detail)           
                 MOVE.B  #8, D4                
                 JSR     DISPLAY_ADDRESS     *display address in Hex (8-character address)           
                 MOVE.W  (A5), D5            *set up buffers for OpCode decoding, D5 to store original 16-bit data
                 MOVE.W  D5, D3              *D3 used for masking information    
-
+                LEA     SIZE_DEFAULT, A2    *A2 used as buffer to hold size (B, W, L) if necessary, default is blank
+                
 *-------------------------------
 *Check for NOP (fixed 16-bit data), no EA
 OP_NOP          CMP.W   #NOP, D5
                 BNE     OP_RTS
-                JSR     PRT_NOP
+                LEA     PRINT_NOP, A1
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5      *increment address pointer, word size
+                JSR     PRT_NEWLINE
                 JMP     DECODE
 
 *-------------------------------
 *Check for RTS (fixed 16-bit data), no EA
 OP_RTS          CMP.W   #RTS, D5
                 BNE     MASK_5_TO_0
-                JSR     PRT_RTS
+                LEA     PRINT_RTS, A1
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5      *increment address pointer, word size
+                JSR     PRT_NEWLINE
                 JMP     DECODE
 
 *-------------------------------
@@ -137,6 +147,25 @@ MASK_7_TO_0     MOVE.W  D5, D3              *D3 as buffer for masking
                 BEQ     OP_CMPI
 
 
+
+
+
+*-------------------------------
+*DATA: Unknown OpCode or random data
+OP_DATA         LEA     PRINT_DATA, A1
+                JSR     DISPLAY_OP
+                CLR.L   D3                  *clear buffers
+                CLR.L   D5
+                CLR.L   D6
+                CLR.L   D2               
+                MOVE.W  (A5), D3            *set up buffers for DISPLAY_ADDRESS (See subroutine for detail)           
+                MOVE.B  #4, D4                
+                JSR     DISPLAY_ADDRESS     *display data in Hex (4-character data)
+                ADDQ.L  #2, A5              *increment address pointer, word size
+                JSR     PRT_NEWLINE
+                JMP     DECODE         
+
+
            
 *+++++++++++++++++++++ 
 *+                   +
@@ -153,41 +182,60 @@ MASK_7_TO_0     MOVE.W  D5, D3              *D3 as buffer for masking
 
 *--------------------------------------------------
 *Print OpCode JSR, go back to DECODE loop           [NEED EA]   
-OP_JSR          JSR     PRT_JSR
-                CLR.L   D3      *clear buffers
-                CLR.L   D5
-                CLR.L   D6
+OP_JSR          LEA     PRINT_JSR, A1
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size
                 JMP     DECODE
 
 *--------------------------------------------------
 *Print OpCode ASR, go back to DECODE loop           [NEED EA]        
-OP_ASR          JSR     PRT_ASR
-                JSR     SIZE_7_TO_6
+OP_ASR          JSR     SIZE_7_TO_6     *check operand size (B, W, L)
+                CMP.B   #1, D2          *check invalid size, if yes branch to DATA
+                BEQ     OP_DATA 
+                LEA     PRINT_ASR, A1   *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
                 JMP     DECODE
 
 *--------------------------------------------------
 *Print OpCode ASL, go back to DECODE loop           [NEED EA]                      
-OP_ASL          JSR     PRT_ASL
-                JSR     SIZE_7_TO_6
-                JMP     DECODE              
+OP_ASL          JSR     SIZE_7_TO_6     *check operand size (B, W, L)
+                CMP.B   #1, D2          *check invalid size, if yes branch to DATA
+                BEQ     OP_DATA
+                LEA     PRINT_ASL, A1   *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
+                JMP     DECODE             
 
 *--------------------------------------------------
 *Print OpCode NEG, go back to DECODE loop           [NEED EA]      
-OP_NEG          JSR     PRT_NEG
-                JSR     SIZE_7_TO_6
-                JMP     DECODE  
+OP_NEG          JSR     SIZE_7_TO_6     *check operand size (B, W, L)
+                CMP.B   #1, D2          *check invalid size, if yes branch to DATA
+                BEQ     OP_DATA
+                LEA     PRINT_NEG, A1   *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
+                JMP     DECODE 
 
 *--------------------------------------------------
 *Print OpCode ORI, go back to DECODE loop           [NEED EA]      
-OP_ORI          JSR     PRT_ORI
-                JSR     SIZE_7_TO_6
+OP_ORI          JSR     SIZE_7_TO_6     *check operand size (B, W, L)
+                CMP.B   #1, D2          *check invalid size, if yes branch to DATA
+                BEQ     OP_DATA
+                LEA     PRINT_ORI, A1   *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
                 JMP     DECODE
   
 *--------------------------------------------------
 *Print OpCode CMPI, go back to DECODE loop           [NEED EA]      
-OP_CMPI         JSR     PRT_CMPI
-                JSR     SIZE_7_TO_6
-                JMP     DECODE                                   
+OP_CMPI         JSR     SIZE_7_TO_6     *check operand size (B, W, L)
+                CMP.B   #1, D2          *check invalid size, if yes branch to DATA
+                BEQ     OP_DATA
+                LEA     PRINT_CMPI, A1  *load OpCode to display
+                JSR     DISPLAY_OP
+                ADDQ.L  #2, A5          *increment address pointer, word size   [CHECK]                
+                JMP     DECODE                                  
 
 
 *--------------------------------------------------
@@ -195,11 +243,23 @@ OP_CMPI         JSR     PRT_CMPI
 SIZE_7_TO_6     MOVE.W  D5, D3                  *D3 as buffer for masking
                 ANDI.L  #maskExcept_7to6, D3    *mask everything except the size bit 7-6
                 CMP.W   #sizeB_7to6, D3         *check for size B (00)
-                BEQ     PRT_B
+                BEQ     LOAD_B_SIZE
                 CMP.W   #sizeW_7to6, D3         *check for size W (01)
-                BEQ     PRT_W
+                BEQ     LOAD_W_SIZE
                 CMP.W   #sizeL_7to6, D3         *check for size L (10)
-                BEQ     PRT_W
+                BEQ     LOAD_L_SIZE
+                MOVE.B  #1, D2                  *[CHECK LAST CASE (11)] D2 flags unknown size
+                RTS
+
+LOAD_B_SIZE     LEA     PRINT_B, A2
+                RTS
+
+LOAD_W_SIZE     LEA     PRINT_W, A2
+                RTS
+
+LOAD_L_SIZE     LEA     PRINT_L, A2
+                RTS         
+ 
 
 *MASK_5_TO_0         ANDI.L  #mask_5to0, D3
 *
@@ -360,62 +420,29 @@ ADDRESS_CONFIGURE   MOVE.B  (A1), D3    *put the converted Hex value into D3, th
                     RTS
  
 
-
-
-
-PRT_NOP     LEA     PRINT_NOP, A1
-            JMP     DISPLAY_OP
-            
-
-PRT_RTS     LEA     PRINT_RTS, A1
-            JMP     DISPLAY_OP
-
-
-PRT_JSR     LEA     PRINT_JSR, A1
-            JMP     DISPLAY_OP
-           
-PRT_ASR     LEA     PRINT_ASR, A1
-            JMP     DISPLAY_OP
-
-PRT_ASL     LEA     PRINT_ASL, A1
-            JMP     DISPLAY_OP  
-     
-
-PRT_NEG     LEA     PRINT_NEG, A1
-            JMP     DISPLAY_OP
-
-
-PRT_ORI     LEA     PRINT_ORI, A1
-            JMP     DISPLAY_OP
-
-PRT_CMPI    LEA     PRINT_CMPI, A1
-            JMP     DISPLAY_OP    
-
-PRT_B       LEA     PRINT_B, A1
-            JMP     DISPLAY_SIZE 
-
-PRT_W       LEA     PRINT_W, A1
-            JMP     DISPLAY_SIZE   
-
-PRT_L       LEA     PRINT_L, A1
-            JMP     DISPLAY_SIZE    
+   
 *--------------------------------------------------
 *Print out OpCode and increment address pointer 
 DISPLAY_OP      MOVE.B  #14, D0
                 TRAP    #15
-                ADDQ.L  #2, A5      *increment address pointer, word size   [CHECK LATER]
-                RTS
-     
-
-*--------------------------------------------------
-*Print out size (B, W, L) 
-DISPLAY_SIZE    MOVE.B  #14, D0
+                
+                MOVE.L  A2, A1
+                MOVE.B  #14, D0
                 TRAP    #15
+                
                 CLR.L   D3      *clear buffers
                 CLR.L   D5
                 CLR.L   D6
+                
                 RTS
      
+*--------------------------------------------------
+*Add newline 
+PRT_NEWLINE     LEA     NEWLINE, A1
+                MOVE.B  #14, D0
+                TRAP    #15
+                RTS
+       
 *=============================================================================================================================================================
 * Put variables and constants here
 *=============================================================================================================================================================
@@ -473,22 +500,25 @@ BVC_L           EQU     %0110100011111111   *CHECK
 
 
 
-
-PRINT_NOP       DC.B    '   NOP     ', CR, LF, 0
-PRINT_RTS       DC.B    '   RTS     ', CR, LF, 0
-PRINT_JSR       DC.B    '   JSR     ', CR, LF, 0
+PRINT_DATA      DC.B    '   DATA', 0
+PRINT_NOP       DC.B    '   NOP', 0
+PRINT_RTS       DC.B    '   RTS', 0
+PRINT_JSR       DC.B    '   JSR', 0
 PRINT_ASR       DC.B    '   ASL', 0
 PRINT_ASL       DC.B    '   ASL', 0
 PRINT_NEG       DC.B    '   NEG', 0
 PRINT_ORI       DC.B    '   ORI', 0
 PRINT_CMPI      DC.B    '   CMPI', 0
 
-PRINT_B         DC.B    '.B     ', CR, LF, 0
-PRINT_W         DC.B    '.W     ', CR, LF, 0
-PRINT_L         DC.B    '.L     ', CR, LF, 0
-
+SIZE_DEFAULT    DC.B    '       ', 0
+PRINT_B         DC.B    '.B     ', 0
+PRINT_W         DC.B    '.W     ', 0
+PRINT_L         DC.B    '.L     ', 0
+NEWLINE         DC.B    CR, LF, 0
 
     END    START        ; last line of source
+
+
 
 
 
