@@ -1,8 +1,12 @@
 *-----------------------------------------------------------
 * Title      :  Input
 * Written by :  Tien Huynh
-* Date       :  12/01/2017
+* Date       :  12/01/2017 (v1)
 * Description:  Read in ASCII char input, convert to Hex value to use as starting & ending address
+*
+* Update     :  12/02/2017 (v1.1) - Tien Huynh
+*                   + Add current address display
+*                   + Decode NOP, RTS, JSR, ASR, ASL, NEG, ORI, CMPI                
 *-----------------------------------------------------------
 
 
@@ -77,74 +81,173 @@ END_INPUT       LEA     endInput, A1        *Prompt input for end address
                 MOVE.L  D5, A6              *Load accepted ENDING address into A6
 
 
+
+                
+*-------------------------------------------------------------------------------------                
+*Start decoding OpCodes                
+DECODE          CLR.L   D3                  *clear buffers
                 CLR.L   D5
-                
-                
-DECODE          MOVE.L  A5, D3
+                CLR.L   D6
+                MOVE.L  A5, D3              *set up buffers for DISPLAY_ADDRESS (See subroutine for detail)           
                 MOVE.B  #8, D4                
-                JSR     DISPLAY_ADDRESS
-                MOVE.W  (A5), D5
-                MOVE.W  D5, D3
-                
+                JSR     DISPLAY_ADDRESS     *display address in Hex (8-character address)           
+                MOVE.W  (A5), D5            *set up buffers for OpCode decoding, D5 to store original 16-bit data
+                MOVE.W  D5, D3              *D3 used for masking information    
+
+*-------------------------------
+*Check for NOP (fixed 16-bit data), no EA
 OP_NOP          CMP.W   #NOP, D5
                 BNE     OP_RTS
                 JSR     PRT_NOP
                 JMP     DECODE
 
+*-------------------------------
+*Check for RTS (fixed 16-bit data), no EA
 OP_RTS          CMP.W   #RTS, D5
-                BNE     OP_RTS
+                BNE     MASK_5_TO_0
                 JSR     PRT_RTS
                 JMP     DECODE
 
+*-------------------------------
+*Check for OpCodes with fixed first 10 bits and variable last 6 bits (5 to 0)
+MASK_5_TO_0     MOVE.W  D5, D3              *D3 as buffer for masking
+                ANDI.L  #mask_5to0, D3
 
+                CMP.W   #JSR, D3     *Check for JSR       
+                BEQ     OP_JSR                
+
+*-------------------------------
+*Check for OpCodes with fixed first 8 bits and variable last 8 bits (7 to 0)
+MASK_7_TO_0     MOVE.W  D5, D3              *D3 as buffer for masking
+                ANDI.L  #mask_7to0, D3
                 
+                CMP.W   #ASR, D3     *Check for ASR
+                BEQ     OP_ASR
                 
+                CMP.W   #ASL, D3     *Check for ASL
+                BEQ     OP_ASL
+                
+                CMP.W   #NEG, D3     *Check for NEG
+                BEQ     OP_NEG
+                
+                CMP.W   #ORI, D3     *Check for ORI
+                BEQ     OP_ORI
+                
+                CMP.W   #CMPI, D3    *Check for CMPI
+                BEQ     OP_CMPI
+
+
+           
+*+++++++++++++++++++++ 
+*+                   +
+*+ TO BE CONTINUE    +
+*+                   +
+*+++++++++++++++++++++
+
+
+               
               SIMHALT  
 *================================================================================================================================================
 *SUBROUTINE SECTION
 *================================================================================================================================================
 
-MASK_5_TO_0         ANDI.L  #mask_5to0, D3
+*--------------------------------------------------
+*Print OpCode JSR, go back to DECODE loop           [NEED EA]   
+OP_JSR          JSR     PRT_JSR
+                CLR.L   D3      *clear buffers
+                CLR.L   D5
+                CLR.L   D6
+                JMP     DECODE
 
-MASK_7_TO_0         ANDI.L  #mask_7to0, D3
+*--------------------------------------------------
+*Print OpCode ASR, go back to DECODE loop           [NEED EA]        
+OP_ASR          JSR     PRT_ASR
+                JSR     SIZE_7_TO_6
+                JMP     DECODE
 
-MASK_10_5_TO_0      ANDI.L  #mask_10and5to0, D3
+*--------------------------------------------------
+*Print OpCode ASL, go back to DECODE loop           [NEED EA]                      
+OP_ASL          JSR     PRT_ASL
+                JSR     SIZE_7_TO_6
+                JMP     DECODE              
 
-MASK_11_TO_9_5_TO_0     ANDI.L  #mask_11to9and5to0, D3
+*--------------------------------------------------
+*Print OpCode NEG, go back to DECODE loop           [NEED EA]      
+OP_NEG          JSR     PRT_NEG
+                JSR     SIZE_7_TO_6
+                JMP     DECODE  
 
-MASK_11_TO_9_5_2_TO_0     ANDI.L  #mask_11to9_5and2to0, D3
+*--------------------------------------------------
+*Print OpCode ORI, go back to DECODE loop           [NEED EA]      
+OP_ORI          JSR     PRT_ORI
+                JSR     SIZE_7_TO_6
+                JMP     DECODE
+  
+*--------------------------------------------------
+*Print OpCode CMPI, go back to DECODE loop           [NEED EA]      
+OP_CMPI         JSR     PRT_CMPI
+                JSR     SIZE_7_TO_6
+                JMP     DECODE                                   
 
 
-MASK_13_TO_0        ANDI.L  #mask_13to0, D3
+*--------------------------------------------------
+*Determine size (B, W, or L) of OpCodes whose size bits are in bit 7 and 6  
+SIZE_7_TO_6     MOVE.W  D5, D3                  *D3 as buffer for masking
+                ANDI.L  #maskExcept_7to6, D3    *mask everything except the size bit 7-6
+                CMP.W   #sizeB_7to6, D3         *check for size B (00)
+                BEQ     PRT_B
+                CMP.W   #sizeW_7to6, D3         *check for size W (01)
+                BEQ     PRT_W
+                CMP.W   #sizeL_7to6, D3         *check for size L (10)
+                BEQ     PRT_W
 
-MASK_13_TO_9_5_TO_0     ANDI.L  #mask_13to9and5to0, D3
+*MASK_5_TO_0         ANDI.L  #mask_5to0, D3
+*
+*MASK_7_TO_0         ANDI.L  #mask_7to0, D3
+*
+*MASK_10_5_TO_0      ANDI.L  #mask_10and5to0, D3
+*
+*MASK_11_TO_9_5_TO_0     ANDI.L  #mask_11to9and5to0, D3
+*
+*MASK_11_TO_9_5_2_TO_0     ANDI.L  #mask_11to9_5and2to0, D3
+*
+*MASK_13_TO_0        ANDI.L  #mask_13to0, D3
+*
+*MASK_13_TO_9_5_TO_0     ANDI.L  #mask_13to9and5to0, D3
 
 
-
-DISPLAY_ADDRESS     SUB.B   #1, D4
-                    MOVE.B  D4, D5
-                    MOVE.L  D3, D6
-                    MULS    #4, D5
-                    LSR.L   D5, D6
-                    MOVE.L  D6, D1
-                    JSR     HEX_CHAR_TO_ASCII
-                    CMP.B   #0, D4
-                    BNE     DISPLAY_ADDRESS
-                    CLR.L   D1
+*--------------------------------------------------
+*Convert address from Hex value to ASCII char to display to console
+*Address to be converted needs to load in D3, the number of character in address needs to load in D4
+DISPLAY_ADDRESS     SUB.B   #1, D4      *subtract 1 position for proper shifting
+                    MOVE.B  D4, D5      *move the position currently pointed address char to D5 buffer
+                    MOVE.L  D3, D6      *move the whole Hex address value to D6 buffer for masking
+                    MULS    #4, D5      *multiply by 4 because of nibble shifting
+                    LSR.L   D5, D6      *logical bit shift right to proper position (i.e. last nibble), store in D6
+                    MOVE.L  D6, D1      *move shifted bit to D1 for TRAP task #6 char display
+                    JSR     HEX_CHAR_TO_ASCII   *jump to subroutine to convert hex to ASCII
+                    CMP.B   #0, D4      *use D4 as counter to run through the whole address, reaching 0 value mean finished
+                    BNE     DISPLAY_ADDRESS     *loop back 
+                    CLR.L   D1          *clear buffer
                     CLR.L   D6
                     CLR.L   D3
                     RTS
-                    
-HEX_CHAR_TO_ASCII   ANDI.L  #bitmaskConversion, D1
-                    CMP.B   #$A, D1
+
+
+*--------------------------------------------------
+*Convert Hex value (only A-F) to ASCII char                  
+HEX_CHAR_TO_ASCII   ANDI.L  #bitmaskConversion, D1      *mask everythign except the last Byte (storing the single nibble value to be converted)
+                    CMP.B   #$A, D1                     *compare with 0xA, smaller mean numeric hex, so jump to numeric subroutine
                     BLT     HEX_NUM_TO_ASCII
-                    ADD.B   #$37, D1
-                    MOVE.B  #6, D0
+                    ADD.B   #$37, D1                    *add 0x37 to convert A-F Hex to equivalent ASCII value
+                    MOVE.B  #6, D0                      *display char to console
                     TRAP    #15
                     RTS
-                    
-HEX_NUM_TO_ASCII    ADD.B   #$30, D1
-                    MOVE.B  #6, D0
+
+*--------------------------------------------------
+*Convert numeric Hex value (only 0-9) to ASCII char                      
+HEX_NUM_TO_ASCII    ADD.B   #$30, D1        *add 0x30 to convert 0-9 Hex to equivalent ASCII value
+                    MOVE.B  #6, D0          *display char to console
                     TRAP    #15
                     RTS
                     
@@ -255,18 +358,47 @@ ADDRESS_CONFIGURE   MOVE.B  (A1), D3    *put the converted Hex value into D3, th
                     ADD.L   D3, D5      *adding D3 to D5 as a way to transfer bits. D5 is the final configured address value
                     CLR.L   D3
                     RTS
+ 
 
 
 
 
 PRT_NOP     LEA     PRINT_NOP, A1
-            JSR     DISPLAY_OP
-            RTS
+            JMP     DISPLAY_OP
+            
 
 PRT_RTS     LEA     PRINT_RTS, A1
-            JSR     DISPLAY_OP
-            RTS
+            JMP     DISPLAY_OP
 
+
+PRT_JSR     LEA     PRINT_JSR, A1
+            JMP     DISPLAY_OP
+           
+PRT_ASR     LEA     PRINT_ASR, A1
+            JMP     DISPLAY_OP
+
+PRT_ASL     LEA     PRINT_ASL, A1
+            JMP     DISPLAY_OP  
+     
+
+PRT_NEG     LEA     PRINT_NEG, A1
+            JMP     DISPLAY_OP
+
+
+PRT_ORI     LEA     PRINT_ORI, A1
+            JMP     DISPLAY_OP
+
+PRT_CMPI    LEA     PRINT_CMPI, A1
+            JMP     DISPLAY_OP    
+
+PRT_B       LEA     PRINT_B, A1
+            JMP     DISPLAY_SIZE 
+
+PRT_W       LEA     PRINT_W, A1
+            JMP     DISPLAY_SIZE   
+
+PRT_L       LEA     PRINT_L, A1
+            JMP     DISPLAY_SIZE    
 *--------------------------------------------------
 *Print out OpCode and increment address pointer 
 DISPLAY_OP      MOVE.B  #14, D0
@@ -274,6 +406,15 @@ DISPLAY_OP      MOVE.B  #14, D0
                 ADDQ.L  #2, A5      *increment address pointer, word size   [CHECK LATER]
                 RTS
      
+
+*--------------------------------------------------
+*Print out size (B, W, L) 
+DISPLAY_SIZE    MOVE.B  #14, D0
+                TRAP    #15
+                CLR.L   D3      *clear buffers
+                CLR.L   D5
+                CLR.L   D6
+                RTS
      
 *=============================================================================================================================================================
 * Put variables and constants here
@@ -297,14 +438,59 @@ mask_11to9_5and2to0         EQU       %1111000111011000
 mask_13to0                  EQU       %1100000000000000
 mask_13to9and5to0           EQU       %1100000111000000
 
+maskExcept_7to6             EQU       %0000000011000000
+
+
+sizeB_7to6          EQU     %0000000000000000
+sizeW_7to6          EQU     %0000000001000000  
+sizeL_7to6          EQU     %0000000010000000       
                     
 NOP             EQU     $4E71
 RTS             EQU     $4E75
+JSR             EQU     %0100111010000000
+ASR             EQU     %1110000000000000
+ASL             EQU     %1110000100000000
+*ASRM           EQU     %1110000011000000
+*ASLM           EQU     %1110000111000000
+NEG             EQU     %0100010000000000
+ORI             EQU     %0000000000000000   *Immediate Data follow
+CMPI            EQU     %0000110000000000   *Immediate Data follow
+*BRA_B      CHECK
+BRA_W           EQU     %0110000000000000   *CHECK
+BRA_L           EQU     %0110000011111111   *CHECK    
+*BCS_B      CHECK
+BCS_W           EQU     %0110010100000000   *CHECK
+BCS_L           EQU     %0110010111111111   *CHECK
+*BGE_B      CHECK
+BGE_W           EQU     %0110110000000000   *CHECK
+BGE_L           EQU     %0110110011111111   *CHECK
+*BLT_B      CHECK
+BLT_W           EQU     %0110110100000000   *CHECK
+BLT_L           EQU     %0110110111111111   *CHECK
+*BVC_B      CHECK
+BVC_W           EQU     %0110100000000000   *CHECK
+BVC_L           EQU     %0110100011111111   *CHECK
+
+
 
 
 PRINT_NOP       DC.B    '   NOP     ', CR, LF, 0
 PRINT_RTS       DC.B    '   RTS     ', CR, LF, 0
+PRINT_JSR       DC.B    '   JSR     ', CR, LF, 0
+PRINT_ASR       DC.B    '   ASL', 0
+PRINT_ASL       DC.B    '   ASL', 0
+PRINT_NEG       DC.B    '   NEG', 0
+PRINT_ORI       DC.B    '   ORI', 0
+PRINT_CMPI      DC.B    '   CMPI', 0
+
+PRINT_B         DC.B    '.B     ', CR, LF, 0
+PRINT_W         DC.B    '.W     ', CR, LF, 0
+PRINT_L         DC.B    '.L     ', CR, LF, 0
+
+
     END    START        ; last line of source
+
+
 
 
 
