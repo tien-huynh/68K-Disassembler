@@ -18,7 +18,7 @@
 
 START
 
-* Put program code here
+* testing code here
     ASR.L   #2, D6     * TESTING
     ASR.W   D2, D7
     ASR.B   #7, D1
@@ -43,9 +43,10 @@ START
     ROL.W   D2, D7
     ROL.B   #7, D1
 
-
     NEG.L   D7
     ORI.B   #2, D2
+
+* start of disassembler
     LEA     welcomeMsg, A1      * Display welcome message
     MOVE.B  #14, D0
     TRAP    #15
@@ -70,7 +71,7 @@ START_INPUT
     CMP.B   #1, D2              * Check D2 error flag, if errored go back to start
     BEQ     START_INPUT
 
-    JSR     ADDRESS_RANGE_CHECK     * Jump to subroutine for checking out of range input (1000 to FFFFFF?)
+    JSR     ADDRESS_RANGE_CHECK * Jump to subroutine for checking out of range input (1000 to FFFFFF?)
 
     CMP.B   #1, D2              * Check D2 error flag, if errored go back to start
     BEQ     START_INPUT
@@ -98,7 +99,7 @@ END_INPUT
     CMP.B   #1, D2              * Check D2 error flag, if errored go back to start
     BEQ     END_INPUT
 
-    JSR     ADDRESS_RANGE_CHECK     * Jump to subroutine for checking out of range input (1000 to FFFFFF?)
+    JSR     ADDRESS_RANGE_CHECK * Jump to subroutine for checking out of range input (1000 to FFFFFF?)
 
     CMP.B   #1, D2              * Check D2 error flag, if errored go back to start
     BEQ     END_INPUT
@@ -280,7 +281,7 @@ OP_JSR
 OP_ASR_MEM
     LEA     PRINT_ASR, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -295,7 +296,7 @@ OP_ASR_REG
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
     JSR     DISPLAY_NEWLINE
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -303,7 +304,7 @@ OP_ASR_REG
 OP_ASL_MEM
     LEA     PRINT_ASL, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -318,7 +319,7 @@ OP_ASL_REG
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
     JSR     DISPLAY_NEWLINE
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -326,7 +327,7 @@ OP_ASL_REG
 OP_LSR_MEM
     LEA     PRINT_LSR, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -341,7 +342,7 @@ OP_LSR_REG
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
     JSR     DISPLAY_NEWLINE
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -349,7 +350,7 @@ OP_LSR_REG
 OP_LSL_MEM
     LEA     PRINT_LSL, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -364,7 +365,7 @@ OP_LSL_REG
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
     JSR     DISPLAY_NEWLINE
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -372,7 +373,7 @@ OP_LSL_REG
 OP_ROR_MEM
     LEA     PRINT_ROR, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -387,7 +388,7 @@ OP_ROR_REG
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
     JSR     DISPLAY_NEWLINE
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -395,7 +396,7 @@ OP_ROR_REG
 OP_ROL_MEM
     LEA     PRINT_ROL, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -410,7 +411,7 @@ OP_ROL_REG
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
     JSR     DISPLAY_NEWLINE
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -421,7 +422,7 @@ OP_NEG
     BEQ     OP_DATA
     LEA     PRINT_NEG, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -432,7 +433,7 @@ OP_ORI
     BEQ     OP_DATA
     LEA     PRINT_ORI, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -443,7 +444,7 @@ OP_CMPI
     BEQ     OP_DATA
     LEA     PRINT_CMPI, A1  * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -452,7 +453,7 @@ OP_BRA
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BRA, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -461,7 +462,7 @@ OP_BCS
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BCS, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 
@@ -471,7 +472,7 @@ OP_BGE
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BGE, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 
@@ -481,7 +482,7 @@ OP_BLT
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BLT, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -490,7 +491,7 @@ OP_BVC
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BVC, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size   [CHECK]
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 
@@ -624,6 +625,9 @@ ADDRESS_RANGE_CHECK
     BGT     ADDRESS_RANGE_ERROR
     CMP.L   #$1000, D5          * Check < 1000 address
     BLT     ADDRESS_RANGE_ERROR
+    MOVE.L  D5, D6              * copy to D6 and mask with 1 to check if it's odd (should be even to align to word)
+    AND.L   #$01, D6
+    BHI     ADDRESS_ODD_ERROR
     MOVE.B  #0, D2              * Set error flag as okay
     RTS
 
@@ -702,6 +706,16 @@ ADDRESS_RANGE_ERROR
 
 
 * --------------------------------------------------
+* Display error message for odd address and set error flag
+ADDRESS_ODD_ERROR
+    LEA     addressOddError, A1
+    MOVE.B  #14, D0
+    TRAP    #15
+    MOVE.B  #1, D2      * use D2 as a flag to check input
+    RTS
+
+
+* --------------------------------------------------
 * Display error message for address difference (end <= start) and set error flag
 ADDRESS_DIFFERENCE_ERROR
     LEA     addressDifferentError, A1
@@ -759,7 +773,6 @@ DISPLAY_DATA_REGISTER
     MOVE.B  #3, D0
     TRAP    #15
 
-    CLR.L   D7
     RTS
 
 * --------------------------------------------------
@@ -774,7 +787,6 @@ DISPLAY_COUNT
     MOVE.B  #3, D0
     TRAP    #15
 
-    CLR.L   D7
     RTS
 * --------------------------------------------------
 * Print out  a single comma ','
@@ -784,9 +796,9 @@ DISPLAY_COMMA
     TRAP    #15
     RTS
 
-* =============================================================================================================================================================
-* Put variables and constants here
-* =============================================================================================================================================================
+* ==================================================================================================================
+* variables and constants
+* ==================================================================================================================
 CR              EQU     $0D     * carriage return
 LF              EQU     $0A     * line feed
 welcomeMsg      DC.B    'Welcome to the 68K Disassembler', CR, LF, 0
@@ -795,6 +807,7 @@ endInput        DC.B    'Please enter ending address in Hex: ', 0
 typeInputError  DC.B    'ERROR: Entered address NOT in Hex', CR, LF, 0
 addressRangeError       DC.B    'ERROR: Address is out of range (1000 to FFFFFF)', CR, LF, 0
 addressDifferentError   DC.B    'ERROR: Ending address must be larger than Starting address', CR, LF, 0
+addressOddError         DC.B    'ERROR: Address must be even (word aligned)', CR, LF, 0
 
 
 bitmaskConversion           EQU       $0000000F
