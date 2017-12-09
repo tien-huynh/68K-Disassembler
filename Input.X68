@@ -121,12 +121,13 @@ END_INPUT
 * Start decoding OpCodes
 DECODE
     CLR.L   D3                  * clear buffers
-    CLR.L   D5
     CLR.L   D6
     CLR.L   D2
     CLR.L   D4
     SUBA.L  A1, A1              * Clear A1 buffer
 
+    CMP.L   A5, A6              * if address pointer has reached end, stop
+    BLE     STOP
     MOVE.L  A5, D3              * set up buffers for DISPLAY_ADDRESS (See subroutine for detail)
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS     * display address in Hex (8-character address)
@@ -241,6 +242,13 @@ MASK_11t9_7t5_2t0
     BEQ     OP_ROL_REG
 
 
+* ++++++++++++++++++++++++++
+* +                        +
+* + REMAINING OPCODES HERE +
+* +                        +
+* ++++++++++++++++++++++++++
+
+
 * -------------------------------
 * DATA: Unknown OpCode or random data
 OP_DATA
@@ -258,14 +266,7 @@ OP_DATA
     JMP     DECODE
 
 
-
-* +++++++++++++++++++++
-* +                   +
-* + TO BE CONTINUED   +
-* +                   +
-* +++++++++++++++++++++
-
-
+STOP
     SIMHALT
 
 
@@ -279,6 +280,7 @@ OP_JSR
     LEA     PRINT_JSR, A1
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -287,6 +289,7 @@ OP_ASR_MEM
     LEA     PRINT_ASR, A1   * load OpCode to display
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -300,8 +303,8 @@ OP_ASR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -310,6 +313,7 @@ OP_ASL_MEM
     LEA     PRINT_ASL, A1   * load OpCode to display
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -323,8 +327,8 @@ OP_ASL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -333,6 +337,7 @@ OP_LSR_MEM
     LEA     PRINT_LSR, A1   * load OpCode to display
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -346,8 +351,8 @@ OP_LSR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -356,6 +361,7 @@ OP_LSL_MEM
     LEA     PRINT_LSL, A1   * load OpCode to display
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -369,8 +375,8 @@ OP_LSL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -379,6 +385,7 @@ OP_ROR_MEM
     LEA     PRINT_ROR, A1   * load OpCode to display
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -392,8 +399,8 @@ OP_ROR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -402,6 +409,7 @@ OP_ROL_MEM
     LEA     PRINT_ROL, A1   * load OpCode to display
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -415,8 +423,8 @@ OP_ROL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -428,6 +436,7 @@ OP_NEG
     LEA     PRINT_NEG, A1   * load OpCode to display
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -439,6 +448,7 @@ OP_ORI
     LEA     PRINT_ORI, A1   * load OpCode to display
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -450,6 +460,7 @@ OP_CMPI
     LEA     PRINT_CMPI, A1  * load OpCode to display
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5          * increment address pointer, word size
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -460,7 +471,8 @@ OP_BRA
     JSR     DISPLAY_OP
     CLR.L   D4
     MOVE.B  #8, D4
-    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -472,7 +484,8 @@ OP_BCS
     JSR     DISPLAY_OP
     CLR.L   D4
     MOVE.B  #8, D4
-    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -485,7 +498,8 @@ OP_BGE
     JSR     DISPLAY_OP
     CLR.L   D4
     MOVE.B  #8, D4
-    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -498,7 +512,8 @@ OP_BLT
     JSR     DISPLAY_OP
     CLR.L   D4
     MOVE.B  #8, D4
-    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -510,7 +525,8 @@ OP_BVC
     JSR     DISPLAY_OP
     CLR.L   D4
     MOVE.B  #8, D4
-    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -944,10 +960,10 @@ PRINT_BGE       DC.B    '  BGE', 0
 PRINT_BLT       DC.B    '  BLT', 0
 PRINT_BVC       DC.B    '  BVC', 0
 
-SIZE_DEFAULT    DC.B    '       ', 0
-PRINT_B         DC.B    '.B     ', 0
-PRINT_W         DC.B    '.W     ', 0
-PRINT_L         DC.B    '.L     ', 0
+SIZE_DEFAULT    DC.B    '     ', 0
+PRINT_B         DC.B    '.B   ', 0
+PRINT_W         DC.B    '.W   ', 0
+PRINT_L         DC.B    '.L   ', 0
 NEWLINE         DC.B    CR, LF, 0
 
     END    START        ; last line of source
