@@ -11,6 +11,8 @@
 *                   + Decode: LSR, LSL, ROR, ROL
 *                   + Fix: ASR, ASL
 *                   + Useful function: DISPLAY_DATA_REGISTER (possibly for EA mode)
+*               12/09/2017 (v1.3) - Tien Huynh
+*                   + Added: address displacement for branching OpCodes (BRA, BCS, BGE, BLT, BVC)
 * -----------------------------------------------------------
 
 
@@ -19,11 +21,13 @@
 START
 
 * testing code here
+    *BRA     START_INPUT
+    BRA.B   BRATEST
     ASR.L   #2, D6     * TESTING
     ASR.W   D2, D7
     ASR.B   #7, D1
 
-    LSR.L   #2, D6     * TESTING
+BRATEST    LSR.L   #2, D6     * TESTING
     LSR.W   D2, D7
     LSR.B   #7, D1
 
@@ -120,6 +124,7 @@ DECODE
     CLR.L   D5
     CLR.L   D6
     CLR.L   D2
+    CLR.L   D4
     SUBA.L  A1, A1              * Clear A1 buffer
 
     MOVE.L  A5, D3              * set up buffers for DISPLAY_ADDRESS (See subroutine for detail)
@@ -453,7 +458,10 @@ OP_BRA
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BRA, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    CLR.L   D4
+    MOVE.B  #8, D4
+    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -462,7 +470,10 @@ OP_BCS
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BCS, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    CLR.L   D4
+    MOVE.B  #8, D4
+    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 
@@ -472,7 +483,10 @@ OP_BGE
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BGE, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    CLR.L   D4
+    MOVE.B  #8, D4
+    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 
@@ -482,7 +496,10 @@ OP_BLT
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BLT, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    CLR.L   D4
+    MOVE.B  #8, D4
+    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -491,7 +508,10 @@ OP_BVC
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BVC, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    CLR.L   D4
+    MOVE.B  #8, D4
+    JSR     DISPLAY_ADDRESS     *display address to branch to in Hex (8-character address)
+    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 
@@ -524,16 +544,57 @@ SIZE_7_TO_0
 
 LOAD_B_SIZE
     LEA     PRINT_B, A2
+    MOVE.L  A5, D4
+    CMP.B   #byteNegative, D3
+    BHS     TWO_COMPLEMENT_BYTE   
+    ADD.L   D4, D3
+    ADDQ.L  #2, A5          * increment address pointer, word size
     RTS
 
 LOAD_W_SIZE
     LEA     PRINT_W, A2
+    MOVE.L  A5, D4
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    MOVE.W  (A5), D3
+    CMP.W   #wordNegative, D3
+    BHS     TWO_COMPLEMENT_WORD   
+    ADD.L   D4, D3
+    ADDQ.L  #2, A5          * increment address pointer, word size
     RTS
 
 LOAD_L_SIZE
     LEA     PRINT_L, A2
+    MOVE.L  A5, D4
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    MOVE.L  (A5), D3
+    CMP.L   #longNegative, D3
+    BHS     TWO_COMPLEMENT_LONG 
+    ADD.L   D4, D3
+    ADDQ.L  #4, A5          * increment address pointer, long size
     RTS
 
+TWO_COMPLEMENT_BYTE
+    NEG.B   D3    
+    SUB.L   D3, D4
+    MOVE.L  D4, D3
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    RTS
+    
+TWO_COMPLEMENT_WORD
+    NEG.W   D3
+    SUB.L   D3, D4
+    MOVE.L  D4, D3
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    RTS
+    
+TWO_COMPLEMENT_LONG
+    NEG.L   D3
+    SUB.L   D3, D4
+    MOVE.L  D4, D3
+    ADDQ.L  #4, A5          * increment address pointer, long size
+    RTS
+    
+    
 
 CHECK_INSTRUCTION_BIT5
     MOVE.W  D5, D3              * D3 as buffer for masking for instruction check
@@ -749,8 +810,8 @@ DISPLAY_OP
     MOVE.B  #14, D0
     TRAP    #15
 
-    CLR.L   D3      * clear buffers
-    CLR.L   D6
+*    CLR.L   D3      * clear buffers
+*    CLR.L   D6
 
     RTS
 
@@ -832,6 +893,10 @@ sizeL_7to6          EQU     %0000000010000000
 sizeW_7to0          EQU     %0000000000000000
 sizeL_7to0          EQU     %0000000011111111
 
+byteNegative        EQU     $80
+wordNegative        EQU     $8000
+longNegative        EQU     $80000000    
+
 
 NOP             EQU     $4E71
 RTS             EQU     $4E75
@@ -879,13 +944,14 @@ PRINT_BGE       DC.B    '  BGE', 0
 PRINT_BLT       DC.B    '  BLT', 0
 PRINT_BVC       DC.B    '  BVC', 0
 
-SIZE_DEFAULT    DC.B    '  ', 0
-PRINT_B         DC.B    '.B', 0
-PRINT_W         DC.B    '.W', 0
-PRINT_L         DC.B    '.L', 0
+SIZE_DEFAULT    DC.B    '       ', 0
+PRINT_B         DC.B    '.B     ', 0
+PRINT_W         DC.B    '.W     ', 0
+PRINT_L         DC.B    '.L     ', 0
 NEWLINE         DC.B    CR, LF, 0
 
     END    START        ; last line of source
+
 
 *~Font name~Courier New~
 *~Font size~10~
