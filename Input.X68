@@ -815,7 +815,6 @@ ADDRESS_CONFIGURE
     RTS
 
 
-
 * --------------------------------------------------
 * Print out OpCode and Size if necessary
 DISPLAY_OP
@@ -865,13 +864,15 @@ DISPLAY_COUNT
     TRAP    #15
 
     RTS
+
 * --------------------------------------------------
-* Print out  a single comma ','
+* Print out a comma and space ', '
 DISPLAY_COMMA
-    MOVE.B  #$2C, D1            * 0x2C is hex value for ',' ACSII char
-    MOVE.B  #6, D0
+    LEA     PRINT_COMMA, A1
+    MOVE.B  #14, D0
     TRAP    #15
     RTS
+
 
 * ==================================================================================================================
 * variables and constants
@@ -964,6 +965,7 @@ SIZE_DEFAULT    DC.B    '     ', 0
 PRINT_B         DC.B    '.B   ', 0
 PRINT_W         DC.B    '.W   ', 0
 PRINT_L         DC.B    '.L   ', 0
+PRINT_COMMA     DC.B    ', ', 0
 NEWLINE         DC.B    CR, LF, 0
 
     END    START        ; last line of source
