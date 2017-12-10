@@ -1,5 +1,5 @@
 * -----------------------------------------------------------
-* Title      :  Input
+* Title      :  Dissassembler
 * Written by :  Tien Huynh, Jeremy Luxon
 * Date       :  12/01/2017 (v1)
 * Description:  Read in ASCII char input, convert to Hex value to use as starting & ending address
@@ -11,8 +11,12 @@
 *                   + Decode: LSR, LSL, ROR, ROL
 *                   + Fix: ASR, ASL
 *                   + Useful function: DISPLAY_DATA_REGISTER (possibly for EA mode)
-*               12/09/2017 (v1.3) - Tien Huynh
-*                   + Added: address displacement for branching OpCodes (BRA, BCS, BGE, BLT, BVC)
+*               12/08/2017 (v1.3) - Jeremy Luxon
+*                   + Improved formatting
+*                   + Added check for word-aligned addresses
+*               12/09/2017 (v1.4)
+*                   + Tien Huynh: Added address displacement for branching OpCodes (BRA, BCS, BGE, BLT, BVC)
+*                   + Jeremy Luxon: Added EA mode handling
 * -----------------------------------------------------------
 
 
@@ -34,7 +38,11 @@ BRATEST    LSR.L   #2, D6     * TESTING
     ASR     (A6)
     ASR     (A6)+
     ASR     -(A6)
-
+    JMP TEST_JMP
+    JSR (A6)
+    JSR $1000395
+    JSR $10
+TEST_JMP
     ASL.L   #2, D6     * TESTING
     ASL.W   D2, D7
     ASL.B   #7, D1
@@ -124,11 +132,6 @@ END_INPUT
 * -------------------------------------------------------------------------------------
 * Start decoding OpCodes
 DECODE
-    CLR.L   D3                  * clear buffers
-    CLR.L   D6
-    CLR.L   D2
-    CLR.L   D4
-
     LEA     NEWLINE, A1         * display a newline
     MOVE.B  #14, D0
     TRAP    #15
@@ -157,7 +160,7 @@ DECODE
 * Check for RTS (fixed 16-bit data), no EA
 OP_RTS
     CMP.W   #RTS, D5
-    BNE     MASK_5t0
+    BNE     OP_JSR
     LEA     PRINT_RTS, A1
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5      * increment address pointer, word size
@@ -166,13 +169,34 @@ OP_RTS
 
 * -------------------------------
 * Check for OpCodes with fixed first 10 bits and variable last 6 bits (5 to 0)
-MASK_5t0
+
+OP_JSR
+
     MOVE.W  D5, D3              * use D3 as buffer for masking
     ANDI.L  #mask_5to0, D3
 
     CMP.W   #JSR, D3            * Check for JSR
-    BEQ     OP_JSR
+    BNE     OP_SHIFT
+    MOVE.L  D5, D4                  * put EA mode bits in D4
+    ANDI.L  #maskExcept_5to3, D4
+    CMP.L   #EAmode_indirect, D4    * JSR valid EA modes: indirect or absolute
+    BEQ     JSR_VALID
+    CMP.L   #EAmode_register, D4
+    BNE     OP_SHIFT
+    MOVE.L  D5, D6                  * put EA register bits in D6
+    ANDI.L  #maskExcept_2to0, D6
+    CMP.L   #EAmode_absolute_long, D6
+    BEQ     JSR_VALID
+    CMP.L   #EAmode_absolute_word, D6
+    BNE     OP_SHIFT
+JSR_VALID
+    LEA     PRINT_JSR, A1
+    JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
+    JMP     DECODE
 
+
+OP_SHIFT
     CMP.W   #ASR_MEMORY, D3     * Check for ASR (memory shift)
     BEQ     OP_ASR_MEM
 
@@ -224,10 +248,10 @@ MASK_5t0
 
 
 * -------------------------------
-* check for register versions of the shift and rotate opcodes
+* check for register versions of the shift opcodes
 
     MOVE.W  D5, D3              * use D3 as buffer for masking
-    ANDI.L  #mask_11to9_7to5_2to0, D3   * mask the bits for the register shift/rotate opcodes
+    ANDI.L  #mask_11to9_7to5_2to0, D3   * mask the bits for the register shift opcodes
 
     CMP.W   #ASR_REGISTER, D3   * Check for ASR (register shift)
     BEQ     OP_ASR_REG
@@ -278,14 +302,6 @@ STOP
 * ================================================================================================================================================
 * SUBROUTINE SECTION
 * ================================================================================================================================================
-
-* --------------------------------------------------
-* Print OpCode JSR, go back to DECODE loop           [NEED EA]
-OP_JSR
-    LEA     PRINT_JSR, A1
-    JSR     DISPLAY_OP
-    JSR     DISPLAY_EA
-    JMP     DECODE
 
 * --------------------------------------------------
 * Print OpCode ASR (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
@@ -836,14 +852,28 @@ DISPLAY_ADDR_INDIRECT
 
 * --------------------------------------------------
 * Print out immediate as '#[number]', 3 bits that represent the value of the register must be stored in D7
-* NOTE: Used in shifting/rotating OpCodes (ASR, ASL, LSR, LSL, ROR, ROL) and for EA
+* NOTE: Used in shifting OpCodes (ASR, ASL, LSR, LSL, ROR, ROL) and for EA
 DISPLAY_COUNT
-    MOVE.B  #$23, D1            * 0x23 is hex value for '#' ACSII char
+    MOVE.B  #$23, D1    * 0x23 is hex value for '#' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
 
-    MOVE.L  D7, D1              * print the number value
+    MOVE.L  D7, D1      * print the number value
     MOVE.B  #3, D0
+    TRAP    #15
+
+    RTS
+
+* --------------------------------------------------
+* Print out immediate as '$[number]', 3 bits that represent the value of the register must be stored in D7
+DISPLAY_HEX
+    MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    MOVE.B  #16, D2     * print in base 16
+    MOVE.L  D7, D1      * print the number value
+    MOVE.B  #15, D0
     TRAP    #15
 
     RTS
@@ -960,6 +990,7 @@ EAmode_increment        EQU     $0000000000011000
 EAmode_decrement        EQU     $0000000000100000
 EAmode_displacement     EQU     $0000000000101000   * not implemented yet
 EAmode_disp_index       EQU     $0000000000110000   * not implemented yet
+EAmode_register         EQU     $0000000000111000
 
 EAmode_absolute_word    EQU     $0000000000000000
 EAmode_absolute_long    EQU     $0000000000000001
