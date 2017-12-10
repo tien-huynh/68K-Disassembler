@@ -1,5 +1,5 @@
 # CSS 422 Final project: Disassembler
-By Martin Huang, Tien Huynh and Jeremy luxon
+By Martin Huang, Tien Huynh and Jeremy Luxon
 
 Program Description: 
  This program is written in motorola 68k assembly language on PC using easy68k. 
