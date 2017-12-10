@@ -7,7 +7,8 @@ Program Description:
  human-readable operation code and effective access mode.
  
 Specifications: 
- The program runs in the following order:
+
+  The program runs in the following order:
   * The program prints out a Welcoming page at the begining.
   * The program ask users to input start address and end address. The start address is no less than $1000 and the end address is no greatere than $FFFFFF
  
