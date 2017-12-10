@@ -163,10 +163,10 @@ OP_RTS
 * -------------------------------
 * Check for OpCodes with fixed first 10 bits and variable last 6 bits (5 to 0)
 MASK_5t0
-    MOVE.W  D5, D3              * D3 as buffer for masking
+    MOVE.W  D5, D3              * use D3 as buffer for masking
     ANDI.L  #mask_5to0, D3
 
-    CMP.W   #JSR, D3     * Check for JSR
+    CMP.W   #JSR, D3            * Check for JSR
     BEQ     OP_JSR
 
     CMP.W   #ASR_MEMORY, D3     * Check for ASR (memory shift)
@@ -190,55 +190,55 @@ MASK_5t0
 
 * -------------------------------
 * Check for OpCodes with fixed first 8 bits and variable last 8 bits (7 to 0)
-MASK_7t0
-    MOVE.W  D5, D3              * D3 as buffer for masking
-    ANDI.L  #mask_7to0, D3
 
-    CMP.W   #NEG, D3     * Check for NEG
+    MOVE.W  D5, D3          * use D3 as buffer for masking
+    ANDI.L  #mask_7to0, D3  * mask bits 7 to 0
+
+    CMP.W   #NEG, D3    * Check for NEG
     BEQ     OP_NEG
 
-    CMP.W   #ORI, D3     * Check for ORI
+    CMP.W   #ORI, D3    * Check for ORI
     BEQ     OP_ORI
 
-    CMP.W   #CMPI, D3    * Check for CMPI
+    CMP.W   #CMPI, D3   * Check for CMPI
     BEQ     OP_CMPI
 
-    CMP.W   #BRA, D3     * Check for BRA
+    CMP.W   #BRA, D3    * Check for BRA
     BEQ     OP_BRA
 
-    CMP.W   #BCS, D3     * Check for BCS
+    CMP.W   #BCS, D3    * Check for BCS
     BEQ     OP_BCS
 
-    CMP.W   #BGE, D3     * Check for BGE
+    CMP.W   #BGE, D3    * Check for BGE
     BEQ     OP_BGE
 
-    CMP.W   #BLT, D3     * Check for BLT
+    CMP.W   #BLT, D3    * Check for BLT
     BEQ     OP_BLT
 
     CMP.W   #BVC, D3    * Check for BVC
     BEQ     OP_CMPI
 
 
-MASK_11t9_7t5_2t0
-    MOVE.W  D5, D3              * D3 as buffer for masking
+* check for register versions of ASR/ASL/LSR/LSL/ROR/ROL
+    MOVE.W  D5, D3              * use D3 as buffer for masking
     ANDI.L  #mask_11to9_7to5_2to0, D3
 
-    CMP.W   #ASR_REGISTER, D3     * Check for ASR (register shift)
+    CMP.W   #ASR_REGISTER, D3   * Check for ASR (register shift)
     BEQ     OP_ASR_REG
 
-    CMP.W   #ASL_REGISTER, D3     * Check for ASL (register shift)
+    CMP.W   #ASL_REGISTER, D3   * Check for ASL (register shift)
     BEQ     OP_ASL_REG
 
-    CMP.W   #LSR_REGISTER, D3     * Check for LSR (register shift)
+    CMP.W   #LSR_REGISTER, D3   * Check for LSR (register shift)
     BEQ     OP_LSR_REG
 
-    CMP.W   #LSL_REGISTER, D3     * Check for LSL (register shift)
+    CMP.W   #LSL_REGISTER, D3   * Check for LSL (register shift)
     BEQ     OP_LSL_REG
 
-    CMP.W   #ROR_REGISTER, D3     * Check for ROR (register shift)
+    CMP.W   #ROR_REGISTER, D3   * Check for ROR (register shift)
     BEQ     OP_ROR_REG
 
-    CMP.W   #ROL_REGISTER, D3     * Check for ROL (register shift)
+    CMP.W   #ROL_REGISTER, D3   * Check for ROL (register shift)
     BEQ     OP_ROL_REG
 
 
@@ -279,7 +279,6 @@ STOP
 OP_JSR
     LEA     PRINT_JSR, A1
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -288,7 +287,6 @@ OP_JSR
 OP_ASR_MEM
     LEA     PRINT_ASR, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -303,7 +301,6 @@ OP_ASR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -312,7 +309,6 @@ OP_ASR_REG
 OP_ASL_MEM
     LEA     PRINT_ASL, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -327,7 +323,6 @@ OP_ASL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -336,7 +331,6 @@ OP_ASL_REG
 OP_LSR_MEM
     LEA     PRINT_LSR, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -351,7 +345,6 @@ OP_LSR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -360,7 +353,6 @@ OP_LSR_REG
 OP_LSL_MEM
     LEA     PRINT_LSL, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -375,7 +367,6 @@ OP_LSL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -384,7 +375,6 @@ OP_LSL_REG
 OP_ROR_MEM
     LEA     PRINT_ROR, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -399,7 +389,6 @@ OP_ROR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -408,7 +397,6 @@ OP_ROR_REG
 OP_ROL_MEM
     LEA     PRINT_ROL, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -423,7 +411,6 @@ OP_ROL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -435,7 +422,6 @@ OP_NEG
     BEQ     OP_DATA
     LEA     PRINT_NEG, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -447,7 +433,6 @@ OP_ORI
     BEQ     OP_DATA
     LEA     PRINT_ORI, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -459,7 +444,6 @@ OP_CMPI
     BEQ     OP_DATA
     LEA     PRINT_CMPI, A1  * load OpCode to display
     JSR     DISPLAY_OP
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -472,7 +456,6 @@ OP_BRA
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -485,7 +468,6 @@ OP_BCS
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -499,7 +481,6 @@ OP_BGE
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -513,7 +494,6 @@ OP_BLT
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -526,7 +506,6 @@ OP_BVC
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    ADDQ.L  #2, A5          * increment address pointer, word size
     JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
@@ -562,7 +541,7 @@ LOAD_B_SIZE
     LEA     PRINT_B, A2
     MOVE.L  A5, D4
     CMP.B   #byteNegative, D3
-    BHS     TWO_COMPLEMENT_BYTE   
+    BHS     TWO_COMPLEMENT_BYTE
     ADD.L   D4, D3
     ADDQ.L  #2, A5          * increment address pointer, word size
     RTS
@@ -573,7 +552,7 @@ LOAD_W_SIZE
     ADDQ.L  #2, A5          * increment address pointer, word size
     MOVE.W  (A5), D3
     CMP.W   #wordNegative, D3
-    BHS     TWO_COMPLEMENT_WORD   
+    BHS     TWO_COMPLEMENT_WORD
     ADD.L   D4, D3
     ADDQ.L  #2, A5          * increment address pointer, word size
     RTS
@@ -584,33 +563,33 @@ LOAD_L_SIZE
     ADDQ.L  #2, A5          * increment address pointer, word size
     MOVE.L  (A5), D3
     CMP.L   #longNegative, D3
-    BHS     TWO_COMPLEMENT_LONG 
+    BHS     TWO_COMPLEMENT_LONG
     ADD.L   D4, D3
     ADDQ.L  #4, A5          * increment address pointer, long size
     RTS
 
 TWO_COMPLEMENT_BYTE
-    NEG.B   D3    
+    NEG.B   D3
     SUB.L   D3, D4
     MOVE.L  D4, D3
     ADDQ.L  #2, A5          * increment address pointer, word size
     RTS
-    
+
 TWO_COMPLEMENT_WORD
     NEG.W   D3
     SUB.L   D3, D4
     MOVE.L  D4, D3
     ADDQ.L  #2, A5          * increment address pointer, word size
     RTS
-    
+
 TWO_COMPLEMENT_LONG
     NEG.L   D3
     SUB.L   D3, D4
     MOVE.L  D4, D3
     ADDQ.L  #4, A5          * increment address pointer, long size
     RTS
-    
-    
+
+
 
 CHECK_INSTRUCTION_BIT5
     MOVE.W  D5, D3              * D3 as buffer for masking for instruction check
@@ -825,8 +804,7 @@ DISPLAY_OP
     MOVE.B  #14, D0
     TRAP    #15
 
-*    CLR.L   D3      * clear buffers
-*    CLR.L   D6
+    ADDQ.L  #2, A5          * increment address pointer, word size
 
     RTS
 
@@ -912,7 +890,23 @@ sizeL_7to0          EQU     %0000000011111111
 
 byteNegative        EQU     $80
 wordNegative        EQU     $8000
-longNegative        EQU     $80000000    
+longNegative        EQU     $80000000
+
+EA_mode_mask        EQU     $0000000000111000
+EA_datareg          EQU     $0000000000000000
+EA_direct           EQU     $0000000000100000
+EA_indirect         EQU     $0000000000010000
+EA_increment        EQU     $0000000000011000
+EA_decrement        EQU     $0000000000100000
+EA_disp             EQU     $0000000000101000
+EA_dispindex        EQU     $0000000000110000
+EA_other            EQU     $0000000000111000
+
+EA_reg_word         EQU     $0000000000000000
+EA_reg_long         EQU     $0000000000000001
+EA_reg_immediate    EQU     $0000000000000100
+EA_reg_pc           EQU     $0000000000000010
+EA_reg_pcindex      EQU     $0000000000000011
 
 
 NOP             EQU     $4E71
