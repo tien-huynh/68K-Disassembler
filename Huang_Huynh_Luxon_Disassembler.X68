@@ -31,6 +31,10 @@ BRATEST    LSR.L   #2, D6     * TESTING
     LSR.W   D2, D7
     LSR.B   #7, D1
 
+    ASR     (A6)
+    ASR     (A6)+
+    ASR     -(A6)
+
     ASL.L   #2, D6     * TESTING
     ASL.W   D2, D7
     ASL.B   #7, D1
@@ -141,7 +145,6 @@ DECODE
 
 * -------------------------------
 * Check for NOP (fixed 16-bit data), no EA
-OP_NOP
     CMP.W   #NOP, D5
     BNE     OP_RTS
     LEA     PRINT_NOP, A1
@@ -182,10 +185,10 @@ MASK_5t0
     CMP.W   #LSL_MEMORY, D3     * Check for LSL (memory shift)
     BEQ     OP_LSL_MEM
 
-    CMP.W   #ROR_MEMORY, D3     * Check for ROR (memory shift)
+    CMP.W   #ROR_MEMORY, D3     * Check for ROR (memory rotate)
     BEQ     OP_ROR_MEM
 
-    CMP.W   #ROL_MEMORY, D3     * Check for ROL (memory shift)
+    CMP.W   #ROL_MEMORY, D3     * Check for ROL (memory rotate)
     BEQ     OP_ROL_MEM
 
 
@@ -220,9 +223,11 @@ MASK_5t0
     BEQ     OP_CMPI
 
 
-* check for register versions of ASR/ASL/LSR/LSL/ROR/ROL
+* -------------------------------
+* check for register versions of the shift and rotate opcodes
+
     MOVE.W  D5, D3              * use D3 as buffer for masking
-    ANDI.L  #mask_11to9_7to5_2to0, D3
+    ANDI.L  #mask_11to9_7to5_2to0, D3   * mask the bits for the register shift/rotate opcodes
 
     CMP.W   #ASR_REGISTER, D3   * Check for ASR (register shift)
     BEQ     OP_ASR_REG
@@ -236,10 +241,10 @@ MASK_5t0
     CMP.W   #LSL_REGISTER, D3   * Check for LSL (register shift)
     BEQ     OP_LSL_REG
 
-    CMP.W   #ROR_REGISTER, D3   * Check for ROR (register shift)
+    CMP.W   #ROR_REGISTER, D3   * Check for ROR (register rotate)
     BEQ     OP_ROR_REG
 
-    CMP.W   #ROL_REGISTER, D3   * Check for ROL (register shift)
+    CMP.W   #ROL_REGISTER, D3   * Check for ROL (register rotate)
     BEQ     OP_ROL_REG
 
 
@@ -279,6 +284,7 @@ STOP
 OP_JSR
     LEA     PRINT_JSR, A1
     JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
     JMP     DECODE
 
 * --------------------------------------------------
@@ -776,14 +782,14 @@ ADDRESS_CONFIGURE
 * --------------------------------------------------
 * Print out OpCode and Size if necessary
 DISPLAY_OP
+    MOVE.B  #14, D0     * print opcode from A1
+    TRAP    #15
+
+    MOVE.L  A2, A1      * print size from A2
     MOVE.B  #14, D0
     TRAP    #15
 
-    MOVE.L  A2, A1
-    MOVE.B  #14, D0
-    TRAP    #15
-
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    ADDQ.L  #2, A5      * increment address pointer, word size
 
     RTS
 
@@ -801,16 +807,99 @@ DISPLAY_DATA_REGISTER
     RTS
 
 * --------------------------------------------------
-* Print out Count as '#[number]', 3 bits that represent the value of the register must be stored in D7
-* NOTE: Used in shifting OpCodes (ASR, ASL, LSR, LSL, ROR, ROL)
-DISPLAY_COUNT
-    MOVE.B  #$23, D1            * 0x44 is hex value for '#' ACSII char
+* Print out address register as 'A[number]', 3 bits that represent the value of the register must be stored in D7
+DISPLAY_ADDR_REGISTER
+    MOVE.B  #$41, D1            * 0x41 is hex value for 'A' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
 
     MOVE.L  D7, D1              * print the number value
     MOVE.B  #3, D0
     TRAP    #15
+
+    RTS
+
+* --------------------------------------------------
+* Print out address register as '(A[number])', 3 bits that represent the value of the register must be stored in D7
+DISPLAY_ADDR_INDIRECT
+    MOVE.B  #$28, D1            * 0x28 is hex value for '(' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    JSR DISPLAY_ADDR_REGISTER
+
+    MOVE.L  #$29, D1            * 0x28 is hex value for ')' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    RTS
+
+* --------------------------------------------------
+* Print out immediate as '#[number]', 3 bits that represent the value of the register must be stored in D7
+* NOTE: Used in shifting/rotating OpCodes (ASR, ASL, LSR, LSL, ROR, ROL) and for EA
+DISPLAY_COUNT
+    MOVE.B  #$23, D1            * 0x23 is hex value for '#' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    MOVE.L  D7, D1              * print the number value
+    MOVE.B  #3, D0
+    TRAP    #15
+
+    RTS
+
+* --------------------------------------------------
+* print EA info for opcode
+DISPLAY_EA
+    MOVE.L  D5, D3                  * put EA mode in D3
+    ANDI.L  #maskExcept_5to3, D3
+    MOVE.L  D5, D7                  * put EA register in D7
+    ANDI.L  #maskExcept_2to0, D7
+
+* check for data register mode
+    CMPI.L  #EAmode_datareg, D3
+    BNE     EA_DIRECT
+    JSR DISPLAY_DATA_REGISTER
+    RTS
+
+EA_DIRECT       * check for direct addressing mode
+    CMPI.L  #EAmode_direct, D3
+    BNE     EA_DIRECT
+    JSR DISPLAY_ADDR_REGISTER
+    RTS
+
+EA_INDIRECT     * check for infirect addressing mode
+    CMPI.L  #EAmode_indirect, D3
+    BNE     EA_INCREMENT
+    JSR DISPLAY_ADDR_INDIRECT
+    RTS
+
+EA_INCREMENT    * check for post-increment addressing mode
+    CMPI.L  #EAmode_increment, D3
+    BNE     EA_DECREMENT
+    JSR DISPLAY_ADDR_INDIRECT
+
+    MOVE.L  #$2b, D1            * 0x2b is hex value for '+' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    RTS
+
+EA_DECREMENT    * check for pre-decrement addressing mode
+    CMPI.L  #EAmode_decrement, D3
+    BNE     EA_MODE_REGISTER
+
+    MOVE.L  #$2d, D1            * 0x2d is hex value for '-' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    JSR DISPLAY_ADDR_INDIRECT
+    RTS
+
+EA_MODE_REGISTER    * addressing mode is in EA register field
+    MOVE.L  D5, D3
+    ANDI.L  #maskExcept_2to0, D3
+    * todo: handle these EA modes
 
     RTS
 
@@ -864,20 +953,19 @@ byteNegative        EQU     $80
 wordNegative        EQU     $8000
 longNegative        EQU     $80000000
 
-EA_datareg          EQU     $0000000000000000
-EA_direct           EQU     $0000000000100000
-EA_indirect         EQU     $0000000000010000
-EA_increment        EQU     $0000000000011000
-EA_decrement        EQU     $0000000000100000
-EA_displacement     EQU     $0000000000101000   * not implemented yet
-EA_disp_index       EQU     $0000000000110000   * not implemented yet
-EA_reg_mode         EQU     $0000000000111000
+EAmode_datareg          EQU     $0000000000000000
+EAmode_direct           EQU     $0000000000100000
+EAmode_indirect         EQU     $0000000000010000
+EAmode_increment        EQU     $0000000000011000
+EAmode_decrement        EQU     $0000000000100000
+EAmode_displacement     EQU     $0000000000101000   * not implemented yet
+EAmode_disp_index       EQU     $0000000000110000   * not implemented yet
 
-EA_absolute_word    EQU     $0000000000000000
-EA_absolute_long    EQU     $0000000000000001
-EA_immediate        EQU     $0000000000000100
-EA_reg_pc           EQU     $0000000000000010   * not implemented yet
-EA_reg_pc_index     EQU     $0000000000000011   * not implemented yet
+EAmode_absolute_word    EQU     $0000000000000000
+EAmode_absolute_long    EQU     $0000000000000001
+EAmode_immediate        EQU     $0000000000000100
+EAmode_reg_pc           EQU     $0000000000000010   * not implemented yet
+EAmode_reg_pc_index     EQU     $0000000000000011   * not implemented yet
 
 
 NOP             EQU     $4E71
