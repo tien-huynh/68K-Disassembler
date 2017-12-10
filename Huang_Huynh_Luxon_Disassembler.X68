@@ -124,7 +124,10 @@ DECODE
     CLR.L   D6
     CLR.L   D2
     CLR.L   D4
-    SUBA.L  A1, A1              * Clear A1 buffer
+
+    LEA     NEWLINE, A1         * display a newline
+    MOVE.B  #14, D0
+    TRAP    #15
 
     CMP.L   A5, A6              * if address pointer has reached end, stop
     BLE     STOP
@@ -144,7 +147,6 @@ OP_NOP
     LEA     PRINT_NOP, A1
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5      * increment address pointer, word size
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 
@@ -156,7 +158,6 @@ OP_RTS
     LEA     PRINT_RTS, A1
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5      * increment address pointer, word size
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 
@@ -262,7 +263,6 @@ OP_DATA
     MOVE.B  #4, D4
     JSR     DISPLAY_ADDRESS     * display data in Hex (4-character data)
     ADDQ.L  #2, A5              * increment address pointer, word size
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 
@@ -279,7 +279,6 @@ STOP
 OP_JSR
     LEA     PRINT_JSR, A1
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -287,7 +286,6 @@ OP_JSR
 OP_ASR_MEM
     LEA     PRINT_ASR, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -301,7 +299,6 @@ OP_ASR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -309,7 +306,6 @@ OP_ASR_REG
 OP_ASL_MEM
     LEA     PRINT_ASL, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -323,7 +319,6 @@ OP_ASL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -331,7 +326,6 @@ OP_ASL_REG
 OP_LSR_MEM
     LEA     PRINT_LSR, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -345,7 +339,6 @@ OP_LSR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -353,7 +346,6 @@ OP_LSR_REG
 OP_LSL_MEM
     LEA     PRINT_LSL, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -367,7 +359,6 @@ OP_LSL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -375,7 +366,6 @@ OP_LSL_REG
 OP_ROR_MEM
     LEA     PRINT_ROR, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -389,7 +379,6 @@ OP_ROR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -397,7 +386,6 @@ OP_ROR_REG
 OP_ROL_MEM
     LEA     PRINT_ROL, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -411,7 +399,6 @@ OP_ROL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -422,7 +409,6 @@ OP_NEG
     BEQ     OP_DATA
     LEA     PRINT_NEG, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -433,7 +419,6 @@ OP_ORI
     BEQ     OP_DATA
     LEA     PRINT_ORI, A1   * load OpCode to display
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -444,7 +429,6 @@ OP_CMPI
     BEQ     OP_DATA
     LEA     PRINT_CMPI, A1  * load OpCode to display
     JSR     DISPLAY_OP
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -456,7 +440,6 @@ OP_BRA
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -468,7 +451,6 @@ OP_BCS
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 
@@ -481,7 +463,6 @@ OP_BGE
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 
@@ -494,7 +475,6 @@ OP_BLT
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 * --------------------------------------------------
@@ -506,7 +486,6 @@ OP_BVC
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
-    JSR     DISPLAY_NEWLINE
     JMP     DECODE
 
 
@@ -809,14 +788,6 @@ DISPLAY_OP
     RTS
 
 * --------------------------------------------------
-* Print out newline
-DISPLAY_NEWLINE
-    LEA     NEWLINE, A1
-    MOVE.B  #14, D0
-    TRAP    #15
-    RTS
-
-* --------------------------------------------------
 * Print out Data Register as 'D[number]', 3 bits that represent the value of the register must be stored in D7
 DISPLAY_DATA_REGISTER
     MOVE.B  #$44, D1            * 0x44 is hex value for 'D' ACSII char
@@ -880,6 +851,7 @@ maskExcept_7to0             EQU       %0000000011111111
 maskExcept_5                EQU       %0000000000100000
 maskExcept_11to9            EQU       %0000111000000000
 maskExcept_2to0             EQU       %0000000000000111
+maskExcept_5to3             EQU       %0000000000111000
 
 sizeB_7to6          EQU     %0000000000000000
 sizeW_7to6          EQU     %0000000001000000
@@ -892,21 +864,20 @@ byteNegative        EQU     $80
 wordNegative        EQU     $8000
 longNegative        EQU     $80000000
 
-EA_mode_mask        EQU     $0000000000111000
 EA_datareg          EQU     $0000000000000000
 EA_direct           EQU     $0000000000100000
 EA_indirect         EQU     $0000000000010000
 EA_increment        EQU     $0000000000011000
 EA_decrement        EQU     $0000000000100000
-EA_disp             EQU     $0000000000101000
-EA_dispindex        EQU     $0000000000110000
-EA_other            EQU     $0000000000111000
+EA_displacement     EQU     $0000000000101000   * not implemented yet
+EA_disp_index       EQU     $0000000000110000   * not implemented yet
+EA_reg_mode         EQU     $0000000000111000
 
-EA_reg_word         EQU     $0000000000000000
-EA_reg_long         EQU     $0000000000000001
-EA_reg_immediate    EQU     $0000000000000100
-EA_reg_pc           EQU     $0000000000000010
-EA_reg_pcindex      EQU     $0000000000000011
+EA_absolute_word    EQU     $0000000000000000
+EA_absolute_long    EQU     $0000000000000001
+EA_immediate        EQU     $0000000000000100
+EA_reg_pc           EQU     $0000000000000010   * not implemented yet
+EA_reg_pc_index     EQU     $0000000000000011   * not implemented yet
 
 
 NOP             EQU     $4E71
