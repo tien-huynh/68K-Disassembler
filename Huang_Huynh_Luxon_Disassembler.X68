@@ -35,13 +35,34 @@ BRATEST    LSR.L   #2, D6     * TESTING
     LSR.W   D2, D7
     LSR.B   #7, D1
 
-    ASR     (A6)
-    ASR     (A6)+
-    ASR     -(A6)
     JMP TEST_JMP
     JSR (A6)
     JSR $1000395
     JSR $10
+	ASL (A3)
+	ASR (A4)
+	LSL (A5)
+	LSR (A6)
+	ROL (A0)
+	ROR (A1)
+	ASL (A3)+
+	ASR (A4)+
+	LSL (A5)+
+	LSR (A6)+
+	ROL (A0)+
+	ROR (A1)+
+	ASL -(A3)
+	ASR -(A4)
+	LSL -(A5)
+	LSR -(A6)
+	ROL -(A0)
+	ROR -(A1)
+	ASL $11
+	ASR $22
+	LSL $33
+	LSR $44
+	ROL $55
+	ROR $66
 TEST_JMP
     ASL.L   #2, D6     * TESTING
     ASL.W   D2, D7
@@ -173,47 +194,86 @@ OP_RTS
 OP_JSR
 
     ANDI.W  #mask_5to0, D3      * Check for JSR
-
     CMP.W   #JSR, D3
-    BNE     OP_SHIFT
+    BNE     OP_DATA
+
+* check for valid EA modes for JSR
+
     MOVE.W  D5, D4                  * put EA mode bits in D4
     ANDI.W  #maskExcept_5to3, D4
     CMP.W   #EAmode_indirect, D4    * JSR valid EA modes: indirect or absolute
     BEQ     JSR_VALID
     CMP.W   #EAmode_register, D4
-    BNE     OP_SHIFT
+    BNE     OP_DATA
+
     MOVE.W  D5, D6                  * put EA register bits in D6
     ANDI.W  #maskExcept_2to0, D6
-    CMP.W   #EAmode_absolute_long, D6
+    CMP.W   #EAmode_absolute_word, D6   * valid EA register field modes: absolute (word or long)
     BEQ     JSR_VALID
-    CMP.W   #EAmode_absolute_word, D6
-    BNE     OP_SHIFT
+    CMP.W   #EAmode_absolute_long, D6
+    BNE     OP_DATA
+
 JSR_VALID
     LEA     PRINT_JSR, A1
     JSR     DISPLAY_OP
     JSR     DISPLAY_EA
     JMP     DECODE
 
+* check for memory shift opcodes
 
-OP_SHIFT
+* first check for valid EA modes for memory shift opcodes
+
+    MOVE.W  D5, D4                  * put EA mode bits in D4
+    ANDI.W  #maskExcept_5to3, D4
+    CMP.W   #EAmode_data, D4        * valid modes: all except direct (data or addr)
+    BEQ     SHIFT_INVALID
+    CMP.W   #EAmode_direct, D4
+    BEQ     SHIFT_INVALID
+
+    MOVE.W  D5, D6                  * put EA register bits in D6
+    ANDI.W  #maskExcept_2to0, D6
+    CMP.W   #EAmode_absolute_word, D6   * valid EA register modes: absolute (word or long)
+    BEQ     SHIFT_VALID
+    CMP.W   #EAmode_absolute_long, D6
+    BNE     SHIFT_INVALID
+
+SHIFT_VALID
+
+* check for which shift opcode it is (if any) and load corresponding name, then display
+
     CMP.W   #ASR_MEMORY, D3     * Check for ASR (memory shift)
-    BEQ     OP_ASR_MEM
+    BNE     OP_ASL_MEM
+    LEA     PRINT_ASR, A1       * load opcode name to display
 
+OP_ASL_MEM
     CMP.W   #ASL_MEMORY, D3     * Check for ASL (memory shift)
-    BEQ     OP_ASL_MEM
+    BNE     OP_LSR_MEM
+    LEA     PRINT_ASL, A1
 
+OP_LSR_MEM
     CMP.W   #LSR_MEMORY, D3     * Check for LSR (memory shift)
-    BEQ     OP_LSR_MEM
+    BNE     OP_LSL_MEM
+    LEA     PRINT_LSR, A1
 
+OP_LSL_MEM
     CMP.W   #LSL_MEMORY, D3     * Check for LSL (memory shift)
-    BEQ     OP_LSL_MEM
+    BNE     OP_ROR_MEM
+    LEA     PRINT_LSL, A1
 
+OP_ROR_MEM
     CMP.W   #ROR_MEMORY, D3     * Check for ROR (memory rotate)
-    BEQ     OP_ROR_MEM
+    BNE     OP_ROL_MEM
+    LEA     PRINT_ROR, A1
 
+OP_ROL_MEM
     CMP.W   #ROL_MEMORY, D3     * Check for ROL (memory rotate)
-    BEQ     OP_ROL_MEM
+    BNE     SHIFT_INVALID
+    LEA     PRINT_ROL, A1
 
+    JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
+
+SHIFT_INVALID
 
 * -------------------------------
 * Check for OpCodes with fixed first 8 bits and variable last 8 bits (7 to 0)
@@ -298,13 +358,6 @@ STOP
 * ================================================================================================================================================
 
 * --------------------------------------------------
-* Print OpCode ASR (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_ASR_MEM
-    LEA     PRINT_ASR, A1   * load OpCode to display
-    JSR     DISPLAY_OP
-    JMP     DECODE
-
-* --------------------------------------------------
 * Print OpCode ASR (register shift), go back to DECODE loop           [Don't need EA]
 OP_ASR_REG
     JSR     SIZE_7_TO_6     * check operand size (B, W, L)
@@ -315,13 +368,6 @@ OP_ASR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JMP     DECODE
-
-* --------------------------------------------------
-* Print OpCode ASL (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_ASL_MEM
-    LEA     PRINT_ASL, A1   * load OpCode to display
-    JSR     DISPLAY_OP
     JMP     DECODE
 
 * --------------------------------------------------
@@ -338,13 +384,6 @@ OP_ASL_REG
     JMP     DECODE
 
 * --------------------------------------------------
-* Print OpCode LSR (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_LSR_MEM
-    LEA     PRINT_LSR, A1   * load OpCode to display
-    JSR     DISPLAY_OP
-    JMP     DECODE
-
-* --------------------------------------------------
 * Print OpCode LSR (register shift), go back to DECODE loop           [Don't need EA]
 OP_LSR_REG
     JSR     SIZE_7_TO_6     * check operand size (B, W, L)
@@ -355,13 +394,6 @@ OP_LSR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JMP     DECODE
-
-* --------------------------------------------------
-* Print OpCode LSL (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_LSL_MEM
-    LEA     PRINT_LSL, A1   * load OpCode to display
-    JSR     DISPLAY_OP
     JMP     DECODE
 
 * --------------------------------------------------
@@ -377,14 +409,7 @@ OP_LSL_REG
     JSR     CHECK_REGISTER_BIT_2TO0
     JMP     DECODE
 
-* --------------------------------------------------
-* Print OpCode ROR (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_ROR_MEM
-    LEA     PRINT_ROR, A1   * load OpCode to display
-    JSR     DISPLAY_OP
-    JMP     DECODE
-
-* --------------------------------------------------
+* -------------------------------------------------
 * Print OpCode ROR (register shift), go back to DECODE loop           [Don't need EA]
 OP_ROR_REG
     JSR     SIZE_7_TO_6     * check operand size (B, W, L)
@@ -395,13 +420,6 @@ OP_ROR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JMP     DECODE
-
-* --------------------------------------------------
-* Print OpCode ROL (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_ROL_MEM
-    LEA     PRINT_ROL, A1   * load OpCode to display
-    JSR     DISPLAY_OP
     JMP     DECODE
 
 * --------------------------------------------------
@@ -856,7 +874,7 @@ DISPLAY_COUNT
     RTS
 
 * --------------------------------------------------
-* Print out immediate as '$[number]', 3 bits that represent the value of the register must be stored in D7
+* Print out immediate as '$[value]', value must be stored in D7
 DISPLAY_HEX
     MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
     MOVE.B  #6, D0
@@ -874,11 +892,11 @@ DISPLAY_HEX
 DISPLAY_EA
     MOVE.W  D5, D3                  * put EA mode in D3
     ANDI.W  #maskExcept_5to3, D3
-    MOVE.W  D5, D7                  * put EA register in D7
+    MOVE.L  D5, D7                  * put EA register in D7
     ANDI.W  #maskExcept_2to0, D7
 
 * check for data register mode
-    CMPI.W  #EAmode_datareg, D3
+    CMPI.W  #EAmode_data, D3
     BNE     EA_DIRECT
     JSR     DISPLAY_DATA_REGISTER
     RTS
@@ -918,9 +936,27 @@ EA_DECREMENT    * check for pre-decrement addressing mode
     RTS
 
 EA_MODE_REGISTER    * addressing mode is in EA register field
-    MOVE.W  D5, D3
-    ANDI.W  #maskExcept_2to0, D3
-    * todo: handle these EA modes
+    CMP.W   #EAmode_absolute_word, D7
+	BNE EA_ABSOLUTE_LONG
+	MOVE.W  (2, A2), D7
+	JSR DISPLAY_HEX
+    ADDQ.L  #2, A5      * increment address pointer, word size
+	RTS
+
+EA_ABSOLUTE_LONG
+	CMP.W   #EAmode_absolute_long, D7
+	BNE     EA_IMMEDIATE
+	MOVE.L  (2, A2), D7
+	JSR DISPLAY_HEX
+    ADDQ.L  #4, A5      * increment address pointer, long size
+	RTS
+
+EA_IMMEDIATE
+	CMP.W   #EAmode_immediate, D7
+	BNE     EA_UNSUPPORTED
+	* todo
+
+EA_UNSUPPORTED
 
     RTS
 
@@ -974,7 +1010,7 @@ byteNegative        EQU     $80
 wordNegative        EQU     $8000
 longNegative        EQU     $80000000
 
-EAmode_datareg          EQU     %0000000000000000
+EAmode_data             EQU     %0000000000000000
 EAmode_direct           EQU     %0000000000100000
 EAmode_indirect         EQU     %0000000000010000
 EAmode_increment        EQU     %0000000000011000
@@ -986,8 +1022,8 @@ EAmode_register         EQU     %0000000000111000
 EAmode_absolute_word    EQU     %0000000000000000
 EAmode_absolute_long    EQU     %0000000000000001
 EAmode_immediate        EQU     %0000000000000100
-EAmode_reg_pc           EQU     %0000000000000010   * not implemented yet
-EAmode_reg_pc_index     EQU     %0000000000000011   * not implemented yet
+EAmode_pc               EQU     %0000000000000010   * not implemented yet
+EAmode_pc_index         EQU     %0000000000000011   * not implemented yet
 
 
 NOP             EQU     $4E71
