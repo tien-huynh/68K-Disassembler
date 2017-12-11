@@ -10,7 +10,9 @@ By Martin Huang, Tien Huynh and Jeremy Luxon
 
   The program runs in the following order:
   * The program prints out a Welcoming page at the begining.
-  * The program ask users to input start address and end address. The start address is no less than $1000 and the end address is no greatere than $FFFFFF
+  * The program askS users to input start address and end address. The start address is no less than $1000 and the end address is no greatere than $FFFFFF
+  * The program then reads the address and opcodes. It displays the opcode if it can, otherwaise it will display "DATA"
+  * the program ends when the starting address reach the ending address.
   
 ## Supported OP codes:
 TABLE | FOR | OPCODE | CODE
