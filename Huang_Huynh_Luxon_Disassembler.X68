@@ -172,22 +172,21 @@ OP_RTS
 
 OP_JSR
 
-    MOVE.W  D5, D3              * use D3 as buffer for masking
-    ANDI.L  #mask_5to0, D3
+    ANDI.W  #mask_5to0, D3      * Check for JSR
 
-    CMP.W   #JSR, D3            * Check for JSR
+    CMP.W   #JSR, D3
     BNE     OP_SHIFT
-    MOVE.L  D5, D4                  * put EA mode bits in D4
-    ANDI.L  #maskExcept_5to3, D4
-    CMP.L   #EAmode_indirect, D4    * JSR valid EA modes: indirect or absolute
+    MOVE.W  D5, D4                  * put EA mode bits in D4
+    ANDI.W  #maskExcept_5to3, D4
+    CMP.W   #EAmode_indirect, D4    * JSR valid EA modes: indirect or absolute
     BEQ     JSR_VALID
-    CMP.L   #EAmode_register, D4
+    CMP.W   #EAmode_register, D4
     BNE     OP_SHIFT
-    MOVE.L  D5, D6                  * put EA register bits in D6
-    ANDI.L  #maskExcept_2to0, D6
-    CMP.L   #EAmode_absolute_long, D6
+    MOVE.W  D5, D6                  * put EA register bits in D6
+    ANDI.W  #maskExcept_2to0, D6
+    CMP.W   #EAmode_absolute_long, D6
     BEQ     JSR_VALID
-    CMP.L   #EAmode_absolute_word, D6
+    CMP.W   #EAmode_absolute_word, D6
     BNE     OP_SHIFT
 JSR_VALID
     LEA     PRINT_JSR, A1
@@ -284,14 +283,9 @@ OP_SHIFT
 OP_DATA
     LEA     PRINT_DATA, A1
     JSR     DISPLAY_OP
-    CLR.L   D3                  * clear buffers
-    CLR.L   D5
-    CLR.L   D6
-    CLR.L   D2
-    MOVE.W  (A5), D3            * set up buffers for DISPLAY_ADDRESS (See subroutine for detail)
+    MOVE.W  D5, D3            * set up buffers for DISPLAY_ADDRESS (See subroutine for detail)
     MOVE.B  #4, D4
     JSR     DISPLAY_ADDRESS     * display data in Hex (4-character data)
-    ADDQ.L  #2, A5              * increment address pointer, word size
     JMP     DECODE
 
 
@@ -639,9 +633,6 @@ DISPLAY_ADDRESS
     JSR     HEX_CHAR_TO_ASCII   * jump to subroutine to convert hex to ASCII
     CMP.B   #0, D4      * use D4 as counter to run through the whole address, reaching 0 value mean finished
     BNE     DISPLAY_ADDRESS     * loop back
-    CLR.L   D1          * clear buffer
-    CLR.L   D6
-    CLR.L   D3
     RTS
 
 
@@ -881,54 +872,54 @@ DISPLAY_HEX
 * --------------------------------------------------
 * print EA info for opcode
 DISPLAY_EA
-    MOVE.L  D5, D3                  * put EA mode in D3
-    ANDI.L  #maskExcept_5to3, D3
-    MOVE.L  D5, D7                  * put EA register in D7
-    ANDI.L  #maskExcept_2to0, D7
+    MOVE.W  D5, D3                  * put EA mode in D3
+    ANDI.W  #maskExcept_5to3, D3
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_2to0, D7
 
 * check for data register mode
-    CMPI.L  #EAmode_datareg, D3
+    CMPI.W  #EAmode_datareg, D3
     BNE     EA_DIRECT
-    JSR DISPLAY_DATA_REGISTER
+    JSR     DISPLAY_DATA_REGISTER
     RTS
 
 EA_DIRECT       * check for direct addressing mode
-    CMPI.L  #EAmode_direct, D3
-    BNE     EA_DIRECT
-    JSR DISPLAY_ADDR_REGISTER
+    CMPI.W  #EAmode_direct, D3
+    BNE     EA_INDIRECT
+    JSR     DISPLAY_ADDR_REGISTER
     RTS
 
 EA_INDIRECT     * check for infirect addressing mode
-    CMPI.L  #EAmode_indirect, D3
+    CMPI.W  #EAmode_indirect, D3
     BNE     EA_INCREMENT
-    JSR DISPLAY_ADDR_INDIRECT
+    JSR     DISPLAY_ADDR_INDIRECT
     RTS
 
 EA_INCREMENT    * check for post-increment addressing mode
-    CMPI.L  #EAmode_increment, D3
+    CMPI.W  #EAmode_increment, D3
     BNE     EA_DECREMENT
-    JSR DISPLAY_ADDR_INDIRECT
+    JSR     DISPLAY_ADDR_INDIRECT
 
-    MOVE.L  #$2b, D1            * 0x2b is hex value for '+' ACSII char
+    MOVE.W  #$2b, D1            * 0x2b is hex value for '+' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
 
     RTS
 
 EA_DECREMENT    * check for pre-decrement addressing mode
-    CMPI.L  #EAmode_decrement, D3
+    CMPI.W  #EAmode_decrement, D3
     BNE     EA_MODE_REGISTER
 
-    MOVE.L  #$2d, D1            * 0x2d is hex value for '-' ACSII char
+    MOVE.W  #$2d, D1            * 0x2d is hex value for '-' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
 
-    JSR DISPLAY_ADDR_INDIRECT
+    JSR     DISPLAY_ADDR_INDIRECT
     RTS
 
 EA_MODE_REGISTER    * addressing mode is in EA register field
-    MOVE.L  D5, D3
-    ANDI.L  #maskExcept_2to0, D3
+    MOVE.W  D5, D3
+    ANDI.W  #maskExcept_2to0, D3
     * todo: handle these EA modes
 
     RTS
@@ -983,20 +974,20 @@ byteNegative        EQU     $80
 wordNegative        EQU     $8000
 longNegative        EQU     $80000000
 
-EAmode_datareg          EQU     $0000000000000000
-EAmode_direct           EQU     $0000000000100000
-EAmode_indirect         EQU     $0000000000010000
-EAmode_increment        EQU     $0000000000011000
-EAmode_decrement        EQU     $0000000000100000
-EAmode_displacement     EQU     $0000000000101000   * not implemented yet
-EAmode_disp_index       EQU     $0000000000110000   * not implemented yet
-EAmode_register         EQU     $0000000000111000
+EAmode_datareg          EQU     %0000000000000000
+EAmode_direct           EQU     %0000000000100000
+EAmode_indirect         EQU     %0000000000010000
+EAmode_increment        EQU     %0000000000011000
+EAmode_decrement        EQU     %0000000000100000
+EAmode_displacement     EQU     %0000000000101000   * not implemented yet
+EAmode_disp_index       EQU     %0000000000110000   * not implemented yet
+EAmode_register         EQU     %0000000000111000
 
-EAmode_absolute_word    EQU     $0000000000000000
-EAmode_absolute_long    EQU     $0000000000000001
-EAmode_immediate        EQU     $0000000000000100
-EAmode_reg_pc           EQU     $0000000000000010   * not implemented yet
-EAmode_reg_pc_index     EQU     $0000000000000011   * not implemented yet
+EAmode_absolute_word    EQU     %0000000000000000
+EAmode_absolute_long    EQU     %0000000000000001
+EAmode_immediate        EQU     %0000000000000100
+EAmode_reg_pc           EQU     %0000000000000010   * not implemented yet
+EAmode_reg_pc_index     EQU     %0000000000000011   * not implemented yet
 
 
 NOP             EQU     $4E71
