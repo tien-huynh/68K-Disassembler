@@ -13,7 +13,7 @@ By Martin Huang, Tien Huynh and Jeremy Luxon
   * The program ask users to input start address and end address. The start address is no less than $1000 and the end address is no greatere than $FFFFFF
   
 ## Supported OP codes:
-DATA  | NOP | RTS | JSR
+TABLE | FOR | OPCODE | 
 ------ | --- | ------------- | -------------
 DATA  | NOP | RTS | JSR
 ASR | ASL  | LSR | LSL |
