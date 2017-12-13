@@ -267,7 +267,7 @@ OP_ROR_MEM
 
 OP_ROL_MEM
     CMP.W   #ROL_MEMORY, D3     * Check for ROL (memory rotate)
-    BNE     SHIFT_INVALID
+    BNE     SHIFT_INVALID 
     LEA     PRINT_ROL, A1
 
     JSR     DISPLAY_OP
@@ -303,8 +303,7 @@ SHIFT_INVALID
     BEQ     OP_BLT
 
     CMP.W   #BVC, D3    * Check for BVC
-    BEQ     OP_CMPI
-
+    BEQ     OP_BVC
 
 * -------------------------------
 * check for register versions of the shift opcodes
@@ -329,6 +328,8 @@ SHIFT_INVALID
 
     CMP.W   #ROL_REGISTER, D3   * Check for ROL (register rotate)
     BEQ     OP_ROL_REG
+
+    JMP     OP_ASR_REG
 
 
 * ++++++++++++++++++++++++++
@@ -463,6 +464,8 @@ OP_CMPI
     BEQ     OP_DATA
     LEA     PRINT_CMPI, A1  * load OpCode to display
     JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
+    JSR     DISPLAY_COMMA
     JMP     DECODE
 
 * --------------------------------------------------
@@ -524,7 +527,7 @@ OP_BVC
 
 
 * --------------------------------------------------
-* Determine size (B, W, or L) of OpCodes whose size bits are in bit 7 and 6
+* Determine size (B, W, or L) of OpCodes whose size bits are in bit 7 and 6. Store size information in D3
 SIZE_7_TO_6
     MOVE.W  D5, D3                  * D3 as buffer for masking
     ANDI.L  #maskExcept_7to6, D3    * mask everything except the size bit 7-6
@@ -539,7 +542,7 @@ SIZE_7_TO_6
 
 
 * --------------------------------------------------
-* Determine size (B, W, or L) of OpCodes whose size bits are determined based on bit 7 and 0 (displacement field)
+* Determine size (B, W, or L) of OpCodes whose size bits are determined based on bit 7 and 0 (displacement field). Store size information in D3
 SIZE_7_TO_0
     MOVE.W  D5, D3                  * D3 as buffer for masking
     ANDI.L  #maskExcept_7to0, D3    * mask everything except the size bit 7-0
@@ -548,6 +551,7 @@ SIZE_7_TO_0
     CMP.W   #sizeL_7to0, D3         * check for size L (0xFF i.e. all 1s in bit 7-0)
     BEQ     LOAD_L_SIZE
     JMP     LOAD_B_SIZE             * else it is size B
+
 
 
 LOAD_B_SIZE
@@ -975,7 +979,7 @@ DISPLAY_COMMA
 CR              EQU     $0D     * carriage return
 LF              EQU     $0A     * line feed
 welcomeMsg      DC.B    'Welcome to the 68K Disassembler', CR, LF, 0
-startInput      DC.B    'Please enter starting address in Hex: ', 0
+startInput      DC.B    'Please enter starting address in Hex(Range from $1000 to $FFFFFF): ', 0
 endInput        DC.B    'Please enter ending address in Hex: ', 0
 typeInputError  DC.B    'ERROR: Entered address NOT in Hex', CR, LF, 0
 addressRangeError       DC.B    'ERROR: Address is out of range (1000 to FFFFFF)', CR, LF, 0
@@ -1052,6 +1056,8 @@ BGE             EQU     %0110110000000000   * CHECK
 BLT             EQU     %0110110100000000   * CHECK
 BVC             EQU     %0110100000000000   * CHECK
 
+CMP             EQU     %1011000000000000   *CMP
+
 
 PRINT_DATA      DC.B    '  DATA', 0
 PRINT_NOP       DC.B    '  NOP', 0
@@ -1065,12 +1071,23 @@ PRINT_ROR       DC.B    '  ROR', 0
 PRINT_ROL       DC.B    '  ROL', 0
 PRINT_NEG       DC.B    '  NEG', 0
 PRINT_ORI       DC.B    '  ORI', 0
+PRINT_CMP       DC.B    '  CMP', 0          *NOT FINISHED
 PRINT_CMPI      DC.B    '  CMPI', 0
 PRINT_BRA       DC.B    '  BRA', 0
 PRINT_BCS       DC.B    '  BCS', 0
 PRINT_BGE       DC.B    '  BGE', 0
 PRINT_BLT       DC.B    '  BLT', 0
 PRINT_BVC       DC.B    '  BVC', 0
+
+*OPCODE BELOW NOT FINISHED
+PRINT_MOVE      DC.B    '  MOVE', 0     
+PRINT_MOVEA     DC.B    '  MOVEA', 0
+PRINT_MOVEM     DC.B    '  MOVEM', 0
+PRINT_ADD       DC.B    '  ADD', 0
+PRINT_ADDA      DC.B    '  ADDA', 0
+PRINT_SUB       DC.B    '  SUB', 0
+PRINT_SUBQ      DC.B    '  SUBQ', 0
+
 
 SIZE_DEFAULT    DC.B    '     ', 0
 PRINT_B         DC.B    '.B   ', 0
@@ -1080,6 +1097,7 @@ PRINT_COMMA     DC.B    ', ', 0
 NEWLINE         DC.B    CR, LF, 0
 
     END    START        ; last line of source
+
 
 
 *~Font name~Courier New~
