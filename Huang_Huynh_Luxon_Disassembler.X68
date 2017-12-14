@@ -195,7 +195,7 @@ OP_JSR
 
     ANDI.W  #mask_5to0, D3      * Check for JSR
     CMP.W   #JSR, D3
-    BNE     OP_DATA
+    BNE     SHIFT_VALID
 
 * check for valid EA modes for JSR
 
@@ -537,7 +537,7 @@ SIZE_7_TO_6
     BEQ     LOAD_W_SIZE
     CMP.W   #sizeL_7to6, D3         * check for size L (10)
     BEQ     LOAD_L_SIZE
-    MOVE.B  #1, D2                  * [CHECK LAST CASE (11)] D2 flags unknown size
+    MOVE.B  #2, D2                  * [CHECK LAST CASE (11)] D2 flags unknown size
     RTS
 
 
@@ -942,7 +942,7 @@ EA_DECREMENT    * check for pre-decrement addressing mode
 EA_MODE_REGISTER    * addressing mode is in EA register field
     CMP.W   #EAmode_absolute_word, D7
 	BNE EA_ABSOLUTE_LONG
-	MOVE.W  (2, A2), D7
+	MOVE.L  (2, A2), D7
 	JSR DISPLAY_HEX
     ADDQ.L  #2, A5      * increment address pointer, word size
 	RTS
@@ -950,7 +950,7 @@ EA_MODE_REGISTER    * addressing mode is in EA register field
 EA_ABSOLUTE_LONG
 	CMP.W   #EAmode_absolute_long, D7
 	BNE     EA_IMMEDIATE
-	MOVE.L  (2, A2), D7
+	MOVE.L  (4, A2), D7
 	JSR DISPLAY_HEX
     ADDQ.L  #4, A5      * increment address pointer, long size
 	RTS
@@ -1097,6 +1097,7 @@ PRINT_COMMA     DC.B    ', ', 0
 NEWLINE         DC.B    CR, LF, 0
 
     END    START        ; last line of source
+
 
 
 
