@@ -36,7 +36,7 @@
 *                   + Martin Huang: Added source EA on opCode like MOVE.
 *                                   Decoded: MOVE
 *                                   added desntination EA support.
-*                                   ADD,ADDA added
+*                                   ADD, ADDA added
 * -----------------------------------------------------------
 
 
@@ -58,7 +58,7 @@ BRATEST
     LSR.W   D2, D7
     LSR.B   #7, D1
     ADD.B   #5, D1
-    ADD.B   #$5,D2
+    ADD.B   #$5, D2
 
     JMP TEST_JMP
     JSR (A6)
@@ -194,11 +194,25 @@ END_INPUT
 * -------------------------------------------------------------------------------------
 * Start decoding OpCodes
 DECODE
-    LEA     NEWLINE, A1         * display a newline
+    LEA     NEWLINE, A1     * display a newline
     MOVE.B  #14, D0
     TRAP    #15
 
-    JSR     LC
+    * count lines up to 30 to pause for user to press enter for the next page
+    LEA     lines, A4       * A4 stack
+    ADDI.B  #1, (A4)        * add 1
+    CMP.B   #30, (A4)       * check for end of page which is 30 lines
+    BNE     no_pause
+    CLR     D1
+    MOVE.B  #0, (A4)        * reset page line count
+    LEA     EnterMSG, A1    * load msg to window
+    MOVE.B  EB, D1
+    MOVE.L  #1, D0
+    TRAP    #15
+    LEA     halt, A1        * Load address to store user input
+    MOVE.L  #2, D0          * Load task code for user input
+    TRAP    #15             * Retrieve input
+no_pause
 
     CMP.L   A5, A6              * if address pointer has reached end, stop
     BLE     STOP
@@ -637,11 +651,6 @@ MASK_7t0
     BEQ     OP_LEA
 
 
-* ++++++++++++++++++++++++++
-* +                        +
-* + REMAINING OPCODES HERE +
-* +                        +
-* ++++++++++++++++++++++++++
 * --------------------------------
 * check for OpCodes  MOVE in 15-12 : MOVE.B, MOVE.W, MOVE.L
     MOVE.W   D5, D3
@@ -658,14 +667,14 @@ MASK_7t0
     
 * ---------------------------------
 * check for OpCodes ADD in 15-12: ADD, ADDA
-    MOVE.W  D5,D3
+    MOVE.W  D5, D3
     ANDI.L  #maskExcept_15to12, D3
     
     CMP.W   #ADD, D3
-    BEQ     OP_ADD_CHECK
+    BNE     OP_DATA
 
 OP_ADD_CHECK
-    MOVE.W  D5,D3
+    MOVE.W  D5, D3
     ANDI.L  #maskExcept_8to6, D3
     
     CMPI.L  #EAmode_data, D3       *000
@@ -707,7 +716,7 @@ OP_ADD_DES_B
     
     CMP.B   #0, D6
     BEQ     OP_DATA
-    MOVE.B  #4,D4
+    MOVE.B  #4, D4
     
     JSR     DISPLAY_OP
     JSR     DISPLAY_SPACE
@@ -715,6 +724,7 @@ OP_ADD_DES_B
     JSR     DISPLAY_COMMA
     JSR     S_EA_DATAREG
     JMP     DECODE
+
 OP_ADD_DES_W   
     MOVE.B  #2, D7  *size is always W
     LEA     PRINT_ADD, A1  * load OpCode to display
@@ -734,6 +744,7 @@ OP_ADD_DES_W
     JSR     DISPLAY_COMMA
     JSR     DISPLAY_DATAREG_11t9
     JMP     DECODE
+
 OP_ADD_DES_L
     MOVE.B  #3, D7  *size is always W
     LEA     PRINT_ADD, A1  * load OpCode to display
@@ -753,6 +764,7 @@ OP_ADD_DES_L
     JSR     DISPLAY_COMMA
     JSR     DISPLAY_DATAREG_11t9
     JMP     DECODE
+
 OP_ADD_SRC_B
     MOVE.B  #1, D7  *size is always W
     LEA     PRINT_ADD, A1  * load OpCode to display
@@ -774,6 +786,7 @@ OP_ADD_SRC_B
     MOVE.W  (SP)+, D5
     JSR     DISPLAY_EA
     JMP     DECODE
+
 OP_ADD_SRC_W
     MOVE.B  #2, D7  *size is always W
     LEA     PRINT_ADD, A1  * load OpCode to display
@@ -795,6 +808,7 @@ OP_ADD_SRC_W
     MOVE.W  (SP)+, D5
     JSR     DISPLAY_EA
     JMP     DECODE
+
 OP_ADD_SRC_L
     MOVE.B  #3, D7  *size is always W
     LEA     PRINT_ADD, A1  * load OpCode to display
@@ -816,6 +830,7 @@ OP_ADD_SRC_L
     MOVE.W  (SP)+, D5
     JSR     DISPLAY_EA
     JMP     DECODE
+
 OP_ADDA_DES_W
     MOVE.B  #2, D7  *size is always W
     LEA     PRINT_ADDA, A1  * load OpCode to display
@@ -837,6 +852,7 @@ OP_ADDA_DES_W
     JSR     DISPLAY_COMMA
     JSR     DISPLAY_EA
     JMP     DECODE
+
 OP_ADDA_DES_L
     MOVE.B  #3, D7  *size is always W
     LEA     PRINT_ADDA, A1  * load OpCode to display
@@ -857,11 +873,7 @@ OP_ADDA_DES_L
     MOVE.W  (SP)+, D5
     JSR     DISPLAY_EA
     JMP     DECODE
-    
-    
-
-
-
+   
 * -------------------------------
 * DATA: Unknown OpCode or random data
 OP_DATA
@@ -1319,11 +1331,11 @@ OP_MOVEL
 * ---------------------------------------------------
 * operation code add or adda
 OP_ADD
-    MOVE.W  D5,D3
+    MOVE.W  D5, D3
     ANDI.L  #maskExcept_7to6, D3
     ROL.W   #$2, D3
     
-    CMPI.B  #%0011,D3
+    CMPI.B  #%0011, D3
     BEQ     OP_ADDA
     
      JSR     DIRECT_DATAREG_EA_CHECK
@@ -1791,7 +1803,7 @@ DISPLAY_EA
     BEQ     EA_IMMEDIATE
     CMP.B   #7, D6
     BEQ     EA_ABS_WORD
-    CMP.B   #8,D6
+    CMP.B   #8, D6
     BEQ     EA_ABS_LONG
     
 
@@ -1940,7 +1952,7 @@ S_EA_IMMEDIATE
     BEQ     DISPLAY_BYTE_IMMEDIATE_DATA
     CMP.B   #2, D7
     BEQ     DISPLAY_WORD_IMMEDIATE_DATA
-    CMP.B   #3,D7
+    CMP.B   #3, D7
     BEQ     DISPLAY_LONG_IMMEDIATE_DATA
 
 S_EA_ABS_WORD
@@ -1997,29 +2009,6 @@ DISPLAY_COMMA
     MOVE.B  #14, D0
     TRAP    #15
     RTS
-
-* -----------------------------------------------------
-* STOP WHEN REACH THE END OF LINE
-LC
-    LEA     lines,A4    * A4 stack
-    ADDI.B  #$1,(A4)    * +1 when the is called
-    CMP.B   #30,(A4)    * each the end of page which is 30 will stop
-    BEQ     stopHERE
-    RTS
-
-*------------------------------
-* will stop the program here
-stopHERE
-    CLR     D1
-    MOVE.B  #00,(A4)     * reset
-    LEA     EnterMSG,A1  * load msg to window
-    MOVE.B  EB,D1
-    MOVE.L  #1,D0
-    TRAP    #15
-    LEA     Halt,A1    * Load address to store user input
-    MOVE.L  #2,D0       * Load task code for user input
-    TRAP    #15         * Retrieve input
-    RTS                 * Return to the main program loop
 
 * ==================================================================================================================
 * variables and constants
@@ -2087,13 +2076,13 @@ EAmode_immediate        EQU     %0000000000111100
 
 * DESTINATION EA MASK
 
-S_EAmode_address          EQU     %0000000001000000
+S_EAmode_address        EQU     %0000000001000000
 
-S_EAmode_direct           EQU     %0000000100000000
+S_EAmode_direct         EQU     %0000000100000000
 
-S_EAmode_indirect         EQU     %0000000010000000
-S_EAmode_increment        EQU     %0000000011000000
-S_EAmode_decrement        EQU     %0000000100000000
+S_EAmode_indirect       EQU     %0000000010000000
+S_EAmode_increment      EQU     %0000000011000000
+S_EAmode_decrement      EQU     %0000000100000000
 S_EAmode_absolute_word  EQU     %0000000111000000
 S_EAmode_absolute_long  EQU     %0000001111000000
 S_EAmode_immediate      EQU     %0000100111000000
@@ -2177,10 +2166,10 @@ PRINT_ADDA      DC.B    '  ADDA', 0
 PRINT_SUB       DC.B    '  SUB', 0
 PRINT_SUBQ      DC.B    '  SUBQ', 0
 
-lines           DS.B 1
-halt       DS.B 1
-EnterMSG        DC.B 'Hit enter to display'
-EB        DC.B EB-EnterMSG
+lines           DS.B    1
+halt            DS.B    1
+EnterMSG        DC.B    'Hit enter to display'
+EB              DC.B    EB-EnterMSG
 
 SIZE_DEFAULT    DC.B    '     ', 0
 PRINT_B         DC.B    '.B   ', 0
