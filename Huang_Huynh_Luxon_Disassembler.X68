@@ -1540,20 +1540,20 @@ DISPLAY_EA
 
 S_DISPLAY_EA
     CMP.B   #1, D4
-    BEQ     EA_DATAREG
+    BEQ     S_EA_DATAREG
     CMP.B   #2, D4
-    BEQ     EA_ADDREG
+    BEQ     S_EA_ADDREG
     CMP.B   #3, D4
-    BEQ     EA_INDIRECT
+    BEQ     S_EA_INDIRECT
     CMP.B   #4, D4
-    BEQ     EA_INCREMENT
+    BEQ     S_EA_INCREMENT
     CMP.B   #5, D4
-    BEQ     EA_DECREMENT
+    BEQ     S_EA_DECREMENT
     CMP.B   #6, D4
-    BEQ     EA_IMMEDIATE
+    BEQ     S_EA_IMMEDIATE
     CMP.B   #7, D4
-    BEQ     EA_ABS_WORD
-    JMP     EA_ABS_LONG
+    BEQ     S_EA_ABS_WORD
+    JMP     S_EA_ABS_LONG
     
 EA_DATAREG
     MOVE.W  D5, D7                  * put EA register in D7
@@ -1622,6 +1622,79 @@ DISPLAY_LONG_IMMEDIATE_DATA
     MOVE.B  #8, D4
     ADDQ.L  #4, A5          * increment address pointer, long size
     JMP     DISPLAY_ADDRESS
+    
+    
+* -------------------------------------------
+* EA display desntination 
+S_EA_DATAREG
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_11to9, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_DATA_REGISTER
+
+S_EA_ADDREG
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_11to9, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDR_REGISTER
+    
+S_EA_INDIRECT
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_11to9, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDR_INDIRECT  
+
+S_EA_INCREMENT
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_11to9, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDR_INCREMENT  
+    
+S_EA_DECREMENT
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_11to9, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDR_DECREMENT  
+
+S_EA_IMMEDIATE
+    MOVE.B  #$23, D1    * 0x23 is hex value for '#' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+    
+    MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+    
+    CMP.B   #1, D7
+    BEQ     DISPLAY_BYTE_IMMEDIATE_DATA
+    CMP.B   #2, D7
+    BEQ     DISPLAY_WORD_IMMEDIATE_DATA
+    JMP     DISPLAY_LONG_IMMEDIATE_DATA
+
+S_EA_ABS_WORD
+    MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    MOVE.W  (A5), D3
+    MOVE.B  #4, D4
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDRESS
+
+S_EA_ABS_LONG
+    MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    MOVE.L  (A5), D3
+    MOVE.B  #8, D4
+    ADDQ.L  #4, A5          * increment address pointer, long size
+    JMP     DISPLAY_ADDRESS
+
+
+
 
 EA_ABS_WORD
     MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
@@ -1852,6 +1925,7 @@ NEWLINE         DC.B    CR, LF, 0
 
 =======
 >>>>>>> 26e7e9946b3c006a98c1d7b945ae3814fa894f0f
+
 
 
 
