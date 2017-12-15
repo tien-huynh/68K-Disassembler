@@ -1,5 +1,5 @@
 * -----------------------------------------------------------
-* Title      :  Input
+* Title      :  Dissassembler
 * Written by :  Tien Huynh, Jeremy Luxon
 * Date       :  12/01/2017 (v1)
 * Description:  Read in ASCII char input, convert to Hex value to use as starting & ending address
@@ -11,8 +11,26 @@
 *                   + Decode: LSR, LSL, ROR, ROL
 *                   + Fix: ASR, ASL
 *                   + Useful function: DISPLAY_DATA_REGISTER (possibly for EA mode)
-*               12/09/2017 (v1.3) - Tien Huynh
-*                   + Added: address displacement for branching OpCodes (BRA, BCS, BGE, BLT, BVC)
+*               12/08/2017 (v1.3) - Jeremy Luxon
+*                   + Improved formatting
+*                   + Added check for word-aligned addresses
+*               12/09/2017 (v1.4)
+*                   + Tien Huynh: Added address displacement for branching OpCodes (BRA, BCS, BGE, BLT, BVC)
+*                   + Jeremy Luxon: Added EA mode handling
+*               12/14/2017 (v1.5)
+*                    + Tien Huynh: EA works now. The EA flag must be put into D6 for DISPLAY_EA to works
+*                                    EA flags:   DIRECT_DATAREG: #1
+*                                                DIRECT_ADDREG: #2
+*                                                INDIRECT_ADDREG: #3
+*                                                INCREMENT_ADDREG: #4
+*                                                DECREMENT_ADDREG: #5  
+*                                                IMMEDIATE_DATA: #6
+*                                                ABSOLUTE_WORD: #7
+*                                                ABSOLUTE_LONG: #8
+*                                   OpCode Size (B, W, L) also has a flag now in D6
+*                                               B: #1
+*                                               W: #2
+*                                               L: #3   
 * -----------------------------------------------------------
 
 
@@ -22,19 +40,49 @@ START
 
 * testing code here
     *BRA     START_INPUT
+    *JSR     START_INPUT
     BRA.B   BRATEST
     ASR.L   #2, D6     * TESTING
     ASR.W   D2, D7
     ASR.B   #7, D1
 
-BRATEST    LSR.L   #2, D6     * TESTING
+BRATEST    
+    MOVE.W  #$1022, A5
+    MOVE.W  #$2000, A6
+    JMP     DECODE    
+    LSR.L   #2, D6     * TESTING
     LSR.W   D2, D7
     LSR.B   #7, D1
 
-    ASR     (A6)
-    ASR     (A6)+
-    ASR     -(A6)
-
+    JMP TEST_JMP
+    JSR (A6)
+    JSR $1000395
+    JSR $10
+	ASL (A3)
+	ASR (A4)
+	LSL (A5)
+	LSR (A6)
+	ROL (A0)
+	ROR (A1)
+	ASL (A3)+
+	ASR (A4)+
+	LSL (A5)+
+	LSR (A6)+
+	ROL (A0)+
+	ROR (A1)+
+	ASL -(A3)
+	ASR -(A4)
+	LSL -(A5)
+	LSR -(A6)
+	ROL -(A0)
+	ROR -(A1)
+	ASL $11
+	ASR $22
+	LSL $33
+	LSR $44
+	ROL $55
+	ROR $66
+TEST_JMP
     ASL.L   #2, D6     * TESTING
     ASL.W   D2, D7
     ASL.B   #7, D1
@@ -124,11 +172,6 @@ END_INPUT
 * -------------------------------------------------------------------------------------
 * Start decoding OpCodes
 DECODE
-    CLR.L   D3                  * clear buffers
-    CLR.L   D6
-    CLR.L   D2
-    CLR.L   D4
-
     LEA     NEWLINE, A1         * display a newline
     MOVE.B  #14, D0
     TRAP    #15
@@ -157,7 +200,7 @@ DECODE
 * Check for RTS (fixed 16-bit data), no EA
 OP_RTS
     CMP.W   #RTS, D5
-    BNE     MASK_5t0
+    BNE     OP_JSR
     LEA     PRINT_RTS, A1
     JSR     DISPLAY_OP
     ADDQ.L  #2, A5      * increment address pointer, word size
@@ -166,31 +209,191 @@ OP_RTS
 
 * -------------------------------
 * Check for OpCodes with fixed first 10 bits and variable last 6 bits (5 to 0)
-MASK_5t0
-    MOVE.W  D5, D3              * use D3 as buffer for masking
-    ANDI.L  #mask_5to0, D3
 
-    CMP.W   #JSR, D3            * Check for JSR
-    BEQ     OP_JSR
+OP_JSR
 
+    ANDI.W  #mask_5to0, D3      * Check for JSR
+    CMP.W   #JSR, D3
+    BNE     OP_ASR_MEM
+    LEA     PRINT_JSR, A1
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    CMP.B   #0, D6
+    BEQ     OP_DATA
+    JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
+    JMP     DECODE     
+
+    
+
+IMMEDIATE_DATA_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ANDI.W  #maskExcept_5to0, D3
+    CMP.W   #EAmode_immediate, D3
+    BEQ     IMMEDIATE_DATA_EA_CONFIRMED     
+    RTS
+
+ABSOLUTE_WORD_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ANDI.W  #maskExcept_5to0, D3
+    CMP.W   #EAmode_absolute_word, D3
+    BEQ     ABSOLUTE_WORD_EA_CONFIRMED    
+    RTS
+
+ABSOLUTE_LONG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ANDI.W  #maskExcept_5to0, D3
+    CMP.W   #EAmode_absolute_long, D3
+    BEQ     ABSOLUTE_LONG_CONFIRMED    
+    RTS
+    
+DIRECT_DATAREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_data, D3
+    BEQ     DIRECT_DATAREG_EA_CONFIRMED    
+    RTS
+
+DIRECT_ADDREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_address, D3
+    BEQ     DIRECT_ADDREG_EA_CONFIRMED    
+    RTS    
+
+INDIRECT_ADDREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_indirect, D3
+    BEQ     INDIRECT_ADDREG_EA_CONFIRMED  
+    RTS
+
+INCREMENT_ADDREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_increment, D3
+    BEQ     INCREMENT_ADDREG_EA_CONFIRMED
+    RTS
+    
+DECREMENT_ADDREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_decrement, D3
+    BEQ     DECREMENT_ADDREG_EA_CONFIRMED
+    RTS
+    
+DIRECT_DATAREG_EA_CONFIRMED
+    MOVE.B  #1, D6
+    RTS
+    
+DIRECT_ADDREG_EA_CONFIRMED
+    MOVE.B  #2, D6
+    RTS
+
+INDIRECT_ADDREG_EA_CONFIRMED
+    MOVE.B  #3, D6
+    RTS
+
+INCREMENT_ADDREG_EA_CONFIRMED
+    MOVE.B  #4, D6
+    RTS
+    
+DECREMENT_ADDREG_EA_CONFIRMED
+    MOVE.B  #5, D6
+    RTS    
+
+IMMEDIATE_DATA_EA_CONFIRMED
+    MOVE.B  #6, D6
+    RTS
+    
+ABSOLUTE_WORD_EA_CONFIRMED
+    MOVE.B  #7, D6
+    RTS
+
+ABSOLUTE_LONG_CONFIRMED
+    MOVE.B  #8, D6
+    RTS
+
+
+
+** check for valid EA modes for JSR
+*
+*    MOVE.W  D5, D4                  * put EA mode bits in D4
+*    ANDI.W  #maskExcept_5to3, D4
+*    CMP.W   #EAmode_indirect, D4    * JSR valid EA modes: indirect or absolute
+*    BEQ     JSR_VALID
+*    CMP.W   #EAmode_register, D4
+*    BNE     OP_DATA
+*
+*    MOVE.W  D5, D6                  * put EA register bits in D6
+*    ANDI.W  #maskExcept_2to0, D6
+*    CMP.W   #EAmode_absolute_word, D6   * valid EA register field modes: absolute (word or long)
+*    BEQ     JSR_VALID
+*    CMP.W   #EAmode_absolute_long, D6
+*    BNE     OP_DATA
+
+*JSR_VALID
+*    LEA     PRINT_JSR, A1
+*    JSR     DISPLAY_OP
+*    JSR     DISPLAY_EA
+*    JMP     DECODE
+
+* check for memory shift opcodes
+
+* first check for valid EA modes for memory shift opcodes
+
+*    MOVE.W  D5, D4                  * put EA mode bits in D4
+*    ANDI.W  #maskExcept_5to3, D4
+*    CMP.W   #EAmode_data, D4        * valid modes: all except direct (data or addr)
+*    BEQ     SHIFT_INVALID
+*    CMP.W   #EAmode_direct, D4
+*    BEQ     SHIFT_INVALID
+*
+*    MOVE.W  D5, D6                  * put EA register bits in D6
+*    ANDI.W  #maskExcept_2to0, D6
+*    CMP.W   #EAmode_absolute_word, D6   * valid EA register modes: absolute (word or long)
+*    BEQ     SHIFT_VALID
+*    CMP.W   #EAmode_absolute_long, D6
+*    BNE     SHIFT_INVALID
+
+
+
+* check for which shift opcode it is (if any) and load corresponding name, then display
+OP_ASR_MEM
     CMP.W   #ASR_MEMORY, D3     * Check for ASR (memory shift)
-    BEQ     OP_ASR_MEM
+    BNE     OP_ASL_MEM
+    LEA     PRINT_ASR, A1       * load opcode name to display
 
+OP_ASL_MEM
     CMP.W   #ASL_MEMORY, D3     * Check for ASL (memory shift)
-    BEQ     OP_ASL_MEM
+    BNE     OP_LSR_MEM
+    LEA     PRINT_ASL, A1
 
+OP_LSR_MEM
     CMP.W   #LSR_MEMORY, D3     * Check for LSR (memory shift)
-    BEQ     OP_LSR_MEM
+    BNE     OP_LSL_MEM
+    LEA     PRINT_LSR, A1
 
+OP_LSL_MEM
     CMP.W   #LSL_MEMORY, D3     * Check for LSL (memory shift)
-    BEQ     OP_LSL_MEM
+    BNE     OP_ROR_MEM
+    LEA     PRINT_LSL, A1
 
+OP_ROR_MEM
     CMP.W   #ROR_MEMORY, D3     * Check for ROR (memory rotate)
-    BEQ     OP_ROR_MEM
+    BNE     OP_ROL_MEM
+    LEA     PRINT_ROR, A1
 
+OP_ROL_MEM
     CMP.W   #ROL_MEMORY, D3     * Check for ROL (memory rotate)
-    BEQ     OP_ROL_MEM
+    BNE     SHIFT_INVALID 
+    LEA     PRINT_ROL, A1
 
+    JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
+
+SHIFT_INVALID
 
 * -------------------------------
 * Check for OpCodes with fixed first 8 bits and variable last 8 bits (7 to 0)
@@ -220,14 +423,13 @@ MASK_5t0
     BEQ     OP_BLT
 
     CMP.W   #BVC, D3    * Check for BVC
-    BEQ     OP_CMPI
-
+    BEQ     OP_BVC
 
 * -------------------------------
-* check for register versions of the shift and rotate opcodes
+* check for register versions of the shift opcodes
 
     MOVE.W  D5, D3              * use D3 as buffer for masking
-    ANDI.L  #mask_11to9_7to5_2to0, D3   * mask the bits for the register shift/rotate opcodes
+    ANDI.L  #mask_11to9_7to5_2to0, D3   * mask the bits for the register shift opcodes
 
     CMP.W   #ASR_REGISTER, D3   * Check for ASR (register shift)
     BEQ     OP_ASR_REG
@@ -248,6 +450,7 @@ MASK_5t0
     BEQ     OP_ROL_REG
 
 
+
 * ++++++++++++++++++++++++++
 * +                        +
 * + REMAINING OPCODES HERE +
@@ -259,15 +462,12 @@ MASK_5t0
 * DATA: Unknown OpCode or random data
 OP_DATA
     LEA     PRINT_DATA, A1
+    LEA     SIZE_DEFAULT, A2
     JSR     DISPLAY_OP
-    CLR.L   D3                  * clear buffers
-    CLR.L   D5
-    CLR.L   D6
-    CLR.L   D2
-    MOVE.W  (A5), D3            * set up buffers for DISPLAY_ADDRESS (See subroutine for detail)
+    MOVE.W  D5, D3            * set up buffers for DISPLAY_ADDRESS (See subroutine for detail)
     MOVE.B  #4, D4
     JSR     DISPLAY_ADDRESS     * display data in Hex (4-character data)
-    ADDQ.L  #2, A5              * increment address pointer, word size
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 
@@ -280,21 +480,6 @@ STOP
 * ================================================================================================================================================
 
 * --------------------------------------------------
-* Print OpCode JSR, go back to DECODE loop           [NEED EA]
-OP_JSR
-    LEA     PRINT_JSR, A1
-    JSR     DISPLAY_OP
-    JSR     DISPLAY_EA
-    JMP     DECODE
-
-* --------------------------------------------------
-* Print OpCode ASR (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_ASR_MEM
-    LEA     PRINT_ASR, A1   * load OpCode to display
-    JSR     DISPLAY_OP
-    JMP     DECODE
-
-* --------------------------------------------------
 * Print OpCode ASR (register shift), go back to DECODE loop           [Don't need EA]
 OP_ASR_REG
     JSR     SIZE_7_TO_6     * check operand size (B, W, L)
@@ -305,13 +490,7 @@ OP_ASR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JMP     DECODE
-
-* --------------------------------------------------
-* Print OpCode ASL (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_ASL_MEM
-    LEA     PRINT_ASL, A1   * load OpCode to display
-    JSR     DISPLAY_OP
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -325,13 +504,7 @@ OP_ASL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JMP     DECODE
-
-* --------------------------------------------------
-* Print OpCode LSR (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_LSR_MEM
-    LEA     PRINT_LSR, A1   * load OpCode to display
-    JSR     DISPLAY_OP
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -345,13 +518,7 @@ OP_LSR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JMP     DECODE
-
-* --------------------------------------------------
-* Print OpCode LSL (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_LSL_MEM
-    LEA     PRINT_LSL, A1   * load OpCode to display
-    JSR     DISPLAY_OP
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -365,16 +532,10 @@ OP_LSL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
-* --------------------------------------------------
-* Print OpCode ROR (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_ROR_MEM
-    LEA     PRINT_ROR, A1   * load OpCode to display
-    JSR     DISPLAY_OP
-    JMP     DECODE
-
-* --------------------------------------------------
+* -------------------------------------------------
 * Print OpCode ROR (register shift), go back to DECODE loop           [Don't need EA]
 OP_ROR_REG
     JSR     SIZE_7_TO_6     * check operand size (B, W, L)
@@ -385,13 +546,7 @@ OP_ROR_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
-    JMP     DECODE
-
-* --------------------------------------------------
-* Print OpCode ROL (memory shift 1 bit, always word size), go back to DECODE loop           [NEED EA]
-OP_ROL_MEM
-    LEA     PRINT_ROL, A1   * load OpCode to display
-    JSR     DISPLAY_OP
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -405,6 +560,7 @@ OP_ROL_REG
     JSR     CHECK_INSTRUCTION_BIT5
     JSR     DISPLAY_COMMA
     JSR     CHECK_REGISTER_BIT_2TO0
+    ADDQ.L  #2, A5          * increment address pointer, word size
     JMP     DECODE
 
 * --------------------------------------------------
@@ -435,6 +591,8 @@ OP_CMPI
     BEQ     OP_DATA
     LEA     PRINT_CMPI, A1  * load OpCode to display
     JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
+    JSR     DISPLAY_COMMA
     JMP     DECODE
 
 * --------------------------------------------------
@@ -443,6 +601,7 @@ OP_BRA
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BRA, A1   * load OpCode to display
     JSR     DISPLAY_OP
+    JSR     LOAD_ADDRESS_DISPLACEMENT
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
@@ -454,6 +613,7 @@ OP_BCS
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BCS, A1   * load OpCode to display
     JSR     DISPLAY_OP
+    JSR     LOAD_ADDRESS_DISPLACEMENT
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
@@ -466,6 +626,7 @@ OP_BGE
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BGE, A1   * load OpCode to display
     JSR     DISPLAY_OP
+    JSR     LOAD_ADDRESS_DISPLACEMENT
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
@@ -478,6 +639,7 @@ OP_BLT
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BLT, A1   * load OpCode to display
     JSR     DISPLAY_OP
+    JSR     LOAD_ADDRESS_DISPLACEMENT
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
@@ -489,6 +651,7 @@ OP_BVC
     JSR     SIZE_7_TO_0     * check operand size (B, W, L)
     LEA     PRINT_BVC, A1   * load OpCode to display
     JSR     DISPLAY_OP
+    JSR     LOAD_ADDRESS_DISPLACEMENT
     CLR.L   D4
     MOVE.B  #8, D4
     JSR     DISPLAY_ADDRESS * display address to branch to in Hex (8-character address)
@@ -496,7 +659,7 @@ OP_BVC
 
 
 * --------------------------------------------------
-* Determine size (B, W, or L) of OpCodes whose size bits are in bit 7 and 6
+* Determine size (B, W, or L) of OpCodes whose size bits are in bit 7 and 6. Store size information in D3
 SIZE_7_TO_6
     MOVE.W  D5, D3                  * D3 as buffer for masking
     ANDI.L  #maskExcept_7to6, D3    * mask everything except the size bit 7-6
@@ -511,7 +674,7 @@ SIZE_7_TO_6
 
 
 * --------------------------------------------------
-* Determine size (B, W, or L) of OpCodes whose size bits are determined based on bit 7 and 0 (displacement field)
+* Determine size (B, W, or L) of OpCodes whose size bits are determined based on bit 7 and 0 (displacement field). Store size information in D3
 SIZE_7_TO_0
     MOVE.W  D5, D3                  * D3 as buffer for masking
     ANDI.L  #maskExcept_7to0, D3    * mask everything except the size bit 7-0
@@ -522,8 +685,62 @@ SIZE_7_TO_0
     JMP     LOAD_B_SIZE             * else it is size B
 
 
+
+*LOAD_B_SIZE
+*    LEA     PRINT_B, A2
+*    MOVE.L  A5, D4
+*    CMP.B   #byteNegative, D3
+*    BHS     TWO_COMPLEMENT_BYTE
+*    ADD.L   D4, D3
+*    ADDQ.L  #2, A5          * increment address pointer, word size
+*    RTS
+
 LOAD_B_SIZE
     LEA     PRINT_B, A2
+    MOVE.B  #1, D7
+    RTS
+
+*LOAD_W_SIZE
+*    LEA     PRINT_W, A2
+*    MOVE.L  A5, D4
+*    ADDQ.L  #2, A5          * increment address pointer, word size
+*    MOVE.W  (A5), D3
+*    CMP.W   #wordNegative, D3
+*    BHS     TWO_COMPLEMENT_WORD
+*    ADD.L   D4, D3
+*    ADDQ.L  #2, A5          * increment address pointer, word size
+*    RTS
+
+LOAD_W_SIZE
+    LEA     PRINT_W, A2
+    MOVE.B  #2, D7
+    RTS
+
+*LOAD_L_SIZE
+*    LEA     PRINT_L, A2
+*    MOVE.L  A5, D4
+*    ADDQ.L  #2, A5          * increment address pointer, word size
+*    MOVE.L  (A5), D3
+*    CMP.L   #longNegative, D3
+*    BHS     TWO_COMPLEMENT_LONG
+*    ADD.L   D4, D3
+*    ADDQ.L  #4, A5          * increment address pointer, long size
+*    RTS
+
+LOAD_L_SIZE
+    LEA     PRINT_L, A2
+    MOVE.B  #3, D7
+    RTS
+
+LOAD_ADDRESS_DISPLACEMENT
+    CMP.B   #1, D7
+    BEQ     BYTE_DISPLACEMENT
+    CMP.B   #2, D7
+    BEQ     WORD_DISPLACEMENT
+    JMP     LONG_DISPLACEMENT  
+    
+BYTE_DISPLACEMENT
+    MOVE.B  D5, D3
     MOVE.L  A5, D4
     CMP.B   #byteNegative, D3
     BHS     TWO_COMPLEMENT_BYTE
@@ -531,8 +748,8 @@ LOAD_B_SIZE
     ADDQ.L  #2, A5          * increment address pointer, word size
     RTS
 
-LOAD_W_SIZE
-    LEA     PRINT_W, A2
+WORD_DISPLACEMENT
+    MOVE.W  D5, D3
     MOVE.L  A5, D4
     ADDQ.L  #2, A5          * increment address pointer, word size
     MOVE.W  (A5), D3
@@ -542,8 +759,8 @@ LOAD_W_SIZE
     ADDQ.L  #2, A5          * increment address pointer, word size
     RTS
 
-LOAD_L_SIZE
-    LEA     PRINT_L, A2
+LONG_DISPLACEMENT
+    MOVE.W  D5, D3
     MOVE.L  A5, D4
     ADDQ.L  #2, A5          * increment address pointer, word size
     MOVE.L  (A5), D3
@@ -552,6 +769,7 @@ LOAD_L_SIZE
     ADD.L   D4, D3
     ADDQ.L  #4, A5          * increment address pointer, long size
     RTS
+    
 
 TWO_COMPLEMENT_BYTE
     NEG.B   D3
@@ -623,9 +841,6 @@ DISPLAY_ADDRESS
     JSR     HEX_CHAR_TO_ASCII   * jump to subroutine to convert hex to ASCII
     CMP.B   #0, D4      * use D4 as counter to run through the whole address, reaching 0 value mean finished
     BNE     DISPLAY_ADDRESS     * loop back
-    CLR.L   D1          * clear buffer
-    CLR.L   D6
-    CLR.L   D3
     RTS
 
 
@@ -780,7 +995,7 @@ ADDRESS_CONFIGURE
 
 
 * --------------------------------------------------
-* Print out OpCode and Size if necessary
+* Print out OpCode and Size if necessary, OpCode in A1, Size in A2
 DISPLAY_OP
     MOVE.B  #14, D0     * print opcode from A1
     TRAP    #15
@@ -789,7 +1004,7 @@ DISPLAY_OP
     MOVE.B  #14, D0
     TRAP    #15
 
-    ADDQ.L  #2, A5      * increment address pointer, word size
+    *ADDQ.L  #2, A5      * increment address pointer, word size
 
     RTS
 
@@ -835,15 +1050,51 @@ DISPLAY_ADDR_INDIRECT
     RTS
 
 * --------------------------------------------------
-* Print out immediate as '#[number]', 3 bits that represent the value of the register must be stored in D7
-* NOTE: Used in shifting/rotating OpCodes (ASR, ASL, LSR, LSL, ROR, ROL) and for EA
-DISPLAY_COUNT
-    MOVE.B  #$23, D1            * 0x23 is hex value for '#' ACSII char
+* Print out address register as '(A[number])+', 3 bits that represent the value of the register must be stored in D7
+DISPLAY_ADDR_INCREMENT
+    JSR     DISPLAY_ADDR_INDIRECT
+
+    MOVE.L  #$2B, D1            * 0x2B is hex value for '+' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
 
-    MOVE.L  D7, D1              * print the number value
+    RTS
+
+* --------------------------------------------------
+* Print out address register as '-(A[number])', 3 bits that represent the value of the register must be stored in D7
+DISPLAY_ADDR_DECREMENT   
+    MOVE.L  #$2D, D1            * 0x2D is hex value for '-' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    JSR     DISPLAY_ADDR_INDIRECT
+
+    RTS
+
+* --------------------------------------------------
+* Print out immediate as '#[number]', 3 bits that represent the value of the register must be stored in D7
+* NOTE: Used in shifting OpCodes (ASR, ASL, LSR, LSL, ROR, ROL) and for EA
+DISPLAY_COUNT
+    MOVE.B  #$23, D1    * 0x23 is hex value for '#' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    MOVE.L  D7, D1      * print the number value
     MOVE.B  #3, D0
+    TRAP    #15
+
+    RTS
+
+* --------------------------------------------------
+* Print out immediate as '$[value]', value must be stored in D7
+DISPLAY_HEX
+    MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+
+    MOVE.B  #16, D2     * print in base 16
+    MOVE.L  D7, D1      * print the number value
+    MOVE.B  #15, D0
     TRAP    #15
 
     RTS
@@ -851,57 +1102,181 @@ DISPLAY_COUNT
 * --------------------------------------------------
 * print EA info for opcode
 DISPLAY_EA
-    MOVE.L  D5, D3                  * put EA mode in D3
-    ANDI.L  #maskExcept_5to3, D3
-    MOVE.L  D5, D7                  * put EA register in D7
-    ANDI.L  #maskExcept_2to0, D7
+    CMP.B   #1, D6
+    BEQ     EA_DATAREG
+    CMP.B   #2, D6
+    BEQ     EA_ADDREG
+    CMP.B   #3, D6
+    BEQ     EA_INDIRECT
+    CMP.B   #4, D6
+    BEQ     EA_INCREMENT
+    CMP.B   #5, D6
+    BEQ     EA_DECREMENT
+    CMP.B   #6, D6
+    BEQ     EA_IMMEDIATE
+    CMP.B   #7, D6
+    BEQ     EA_ABS_WORD
+    JMP     EA_ABS_LONG
+    
+EA_DATAREG
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_2to0, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_DATA_REGISTER
 
-* check for data register mode
-    CMPI.L  #EAmode_datareg, D3
-    BNE     EA_DIRECT
-    JSR DISPLAY_DATA_REGISTER
-    RTS
+EA_ADDREG
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_2to0, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDR_REGISTER
+    
+EA_INDIRECT
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_2to0, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDR_INDIRECT  
 
-EA_DIRECT       * check for direct addressing mode
-    CMPI.L  #EAmode_direct, D3
-    BNE     EA_DIRECT
-    JSR DISPLAY_ADDR_REGISTER
-    RTS
+EA_INCREMENT
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_2to0, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDR_INCREMENT  
+    
+EA_DECREMENT
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_2to0, D7
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDR_DECREMENT  
 
-EA_INDIRECT     * check for infirect addressing mode
-    CMPI.L  #EAmode_indirect, D3
-    BNE     EA_INCREMENT
-    JSR DISPLAY_ADDR_INDIRECT
-    RTS
 
-EA_INCREMENT    * check for post-increment addressing mode
-    CMPI.L  #EAmode_increment, D3
-    BNE     EA_DECREMENT
-    JSR DISPLAY_ADDR_INDIRECT
-
-    MOVE.L  #$2b, D1            * 0x2b is hex value for '+' ACSII char
+EA_IMMEDIATE
+    MOVE.B  #$23, D1    * 0x23 is hex value for '#' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
 
-    RTS
+    MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
+    
+    CMP.B   #1, D7
+    BEQ     DISPLAY_BYTE_IMMEDIATE_DATA
+    CMP.B   #2, D7
+    BEQ     DISPLAY_WORD_IMMEDIATE_DATA
+    JMP     DISPLAY_LONG_IMMEDIATE_DATA
 
-EA_DECREMENT    * check for pre-decrement addressing mode
-    CMPI.L  #EAmode_decrement, D3
-    BNE     EA_MODE_REGISTER
 
-    MOVE.L  #$2d, D1            * 0x2d is hex value for '-' ACSII char
+DISPLAY_BYTE_IMMEDIATE_DATA
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    MOVE.W  (A5), D3
+    MOVE.B  #2, D4
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDRESS
+
+DISPLAY_WORD_IMMEDIATE_DATA
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    MOVE.W  (A5), D3
+    MOVE.B  #4, D4
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDRESS
+
+DISPLAY_LONG_IMMEDIATE_DATA    
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    MOVE.L  (A5), D3
+    MOVE.B  #8, D4
+    ADDQ.L  #4, A5          * increment address pointer, long size
+    JMP     DISPLAY_ADDRESS
+
+EA_ABS_WORD
+    MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
 
-    JSR DISPLAY_ADDR_INDIRECT
-    RTS
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    MOVE.W  (A5), D3
+    MOVE.B  #4, D4
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    JMP     DISPLAY_ADDRESS
 
-EA_MODE_REGISTER    * addressing mode is in EA register field
-    MOVE.L  D5, D3
-    ANDI.L  #maskExcept_2to0, D3
-    * todo: handle these EA modes
+EA_ABS_LONG
+    MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
+    MOVE.B  #6, D0
+    TRAP    #15
 
-    RTS
+    ADDQ.L  #2, A5          * increment address pointer, word size
+    MOVE.L  (A5), D3
+    MOVE.B  #8, D4
+    ADDQ.L  #4, A5          * increment address pointer, long size
+    JMP     DISPLAY_ADDRESS
+
+*    MOVE.W  D5, D3                  * put EA mode in D3
+*    ANDI.W  #maskExcept_5to3, D3
+*    MOVE.L  D5, D7                  * put EA register in D7
+*    ANDI.W  #maskExcept_2to0, D7
+*
+** check for data register mode
+*    CMPI.W  #EAmode_data, D3
+*    BNE     EA_DIRECT
+*    JSR     DISPLAY_DATA_REGISTER
+*    RTS
+*
+*EA_DIRECT       * check for direct addressing mode
+*    CMPI.W  #EAmode_direct, D3
+*    BNE     EA_INDIRECT
+*    JSR     DISPLAY_ADDR_REGISTER
+*    RTS
+*
+*EA_INDIRECT     * check for infirect addressing mode
+*    CMPI.W  #EAmode_indirect, D3
+*    BNE     EA_INCREMENT
+*    JSR     DISPLAY_ADDR_INDIRECT
+*    RTS
+*
+*EA_INCREMENT    * check for post-increment addressing mode
+*    CMPI.W  #EAmode_increment, D3
+*    BNE     EA_DECREMENT
+*    JSR     DISPLAY_ADDR_INDIRECT
+*
+*    MOVE.W  #$2b, D1            * 0x2b is hex value for '+' ACSII char
+*    MOVE.B  #6, D0
+*    TRAP    #15
+*
+*    RTS
+*
+*EA_DECREMENT    * check for pre-decrement addressing mode
+*    CMPI.W  #EAmode_decrement, D3
+*    BNE     EA_MODE_REGISTER
+*
+*    MOVE.W  #$2d, D1            * 0x2d is hex value for '-' ACSII char
+*    MOVE.B  #6, D0
+*    TRAP    #15
+*
+*    JSR     DISPLAY_ADDR_INDIRECT
+*    RTS
+*
+*EA_MODE_REGISTER    * addressing mode is in EA register field
+*    CMP.W   #EAmode_absolute_word, D7
+*	BNE EA_ABSOLUTE_LONG
+*	MOVE.W  (2, A2), D7
+*	JSR DISPLAY_HEX
+*    ADDQ.L  #2, A5      * increment address pointer, word size
+*	RTS
+*
+*EA_ABSOLUTE_LONG
+*	CMP.W   #EAmode_absolute_long, D7
+*	BNE     EA_IMMEDIATE
+*	MOVE.L  (2, A2), D7
+*	JSR DISPLAY_HEX
+*    ADDQ.L  #4, A5      * increment address pointer, long size
+*	RTS
+*
+*EA_IMMEDIATE
+*	CMP.W   #EAmode_immediate, D7
+*	BNE     EA_UNSUPPORTED
+*	* todo
+*
+*EA_UNSUPPORTED
+*
+*    RTS
 
 * --------------------------------------------------
 * Print out a comma and space ', '
@@ -918,7 +1293,7 @@ DISPLAY_COMMA
 CR              EQU     $0D     * carriage return
 LF              EQU     $0A     * line feed
 welcomeMsg      DC.B    'Welcome to the 68K Disassembler', CR, LF, 0
-startInput      DC.B    'Please enter starting address in Hex: ', 0
+startInput      DC.B    'Please enter starting address in Hex(Range from $1000 to $FFFFFF): ', 0
 endInput        DC.B    'Please enter ending address in Hex: ', 0
 typeInputError  DC.B    'ERROR: Entered address NOT in Hex', CR, LF, 0
 addressRangeError       DC.B    'ERROR: Address is out of range (1000 to FFFFFF)', CR, LF, 0
@@ -941,6 +1316,7 @@ maskExcept_5                EQU       %0000000000100000
 maskExcept_11to9            EQU       %0000111000000000
 maskExcept_2to0             EQU       %0000000000000111
 maskExcept_5to3             EQU       %0000000000111000
+maskExcept_5to0             EQU       %0000000000111111
 
 sizeB_7to6          EQU     %0000000000000000
 sizeW_7to6          EQU     %0000000001000000
@@ -953,19 +1329,20 @@ byteNegative        EQU     $80
 wordNegative        EQU     $8000
 longNegative        EQU     $80000000
 
-EAmode_datareg          EQU     $0000000000000000
-EAmode_direct           EQU     $0000000000100000
-EAmode_indirect         EQU     $0000000000010000
-EAmode_increment        EQU     $0000000000011000
-EAmode_decrement        EQU     $0000000000100000
-EAmode_displacement     EQU     $0000000000101000   * not implemented yet
-EAmode_disp_index       EQU     $0000000000110000   * not implemented yet
+EAmode_data             EQU     %0000000000000000
+EAmode_address          EQU     %0000000000001000
+EAmode_indirect         EQU     %0000000000010000
+EAmode_increment        EQU     %0000000000011000
+EAmode_decrement        EQU     %0000000000100000
+EAmode_displacement     EQU     %0000000000101000   * not implemented yet
+EAmode_disp_index       EQU     %0000000000110000   * not implemented yet
+EAmode_register         EQU     %0000000000111000
 
-EAmode_absolute_word    EQU     $0000000000000000
-EAmode_absolute_long    EQU     $0000000000000001
-EAmode_immediate        EQU     $0000000000000100
-EAmode_reg_pc           EQU     $0000000000000010   * not implemented yet
-EAmode_reg_pc_index     EQU     $0000000000000011   * not implemented yet
+EAmode_absolute_word    EQU     %0000000000111000
+EAmode_absolute_long    EQU     %0000000000111001
+EAmode_immediate        EQU     %0000000000111100
+EAmode_pc               EQU     %0000000000000010   * not implemented yet
+EAmode_pc_index         EQU     %0000000000000011   * not implemented yet
 
 
 NOP             EQU     $4E71
@@ -994,6 +1371,8 @@ BGE             EQU     %0110110000000000   * CHECK
 BLT             EQU     %0110110100000000   * CHECK
 BVC             EQU     %0110100000000000   * CHECK
 
+CMP             EQU     %1011000000000000   *CMP
+
 
 PRINT_DATA      DC.B    '  DATA', 0
 PRINT_NOP       DC.B    '  NOP', 0
@@ -1007,12 +1386,23 @@ PRINT_ROR       DC.B    '  ROR', 0
 PRINT_ROL       DC.B    '  ROL', 0
 PRINT_NEG       DC.B    '  NEG', 0
 PRINT_ORI       DC.B    '  ORI', 0
+PRINT_CMP       DC.B    '  CMP', 0          *NOT FINISHED
 PRINT_CMPI      DC.B    '  CMPI', 0
 PRINT_BRA       DC.B    '  BRA', 0
 PRINT_BCS       DC.B    '  BCS', 0
 PRINT_BGE       DC.B    '  BGE', 0
 PRINT_BLT       DC.B    '  BLT', 0
 PRINT_BVC       DC.B    '  BVC', 0
+
+*OPCODE BELOW NOT FINISHED
+PRINT_MOVE      DC.B    '  MOVE', 0     
+PRINT_MOVEA     DC.B    '  MOVEA', 0
+PRINT_MOVEM     DC.B    '  MOVEM', 0
+PRINT_ADD       DC.B    '  ADD', 0
+PRINT_ADDA      DC.B    '  ADDA', 0
+PRINT_SUB       DC.B    '  SUB', 0
+PRINT_SUBQ      DC.B    '  SUBQ', 0
+
 
 SIZE_DEFAULT    DC.B    '     ', 0
 PRINT_B         DC.B    '.B   ', 0
@@ -1022,6 +1412,11 @@ PRINT_COMMA     DC.B    ', ', 0
 NEWLINE         DC.B    CR, LF, 0
 
     END    START        ; last line of source
+
+
+
+
+
 
 
 *~Font name~Courier New~
