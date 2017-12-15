@@ -36,6 +36,7 @@
 *                   + Martin Huang: Added source EA on opCode like MOVE.
 *                                   Decoded: MOVE
 *                                   added desntination EA support.
+*                                   ADD,ADDA added
 * -----------------------------------------------------------
 
 
@@ -45,7 +46,6 @@ START
 
 * testing code here
     BRA     START_INPUT
-    *JSR     START_INPUT
     *BRA.B   BRATEST
     *JSR   TEST_MOVE
     ASR.L   #2, D6     * TESTING
@@ -53,15 +53,12 @@ START
     ASR.B   #7, D1
 
 BRATEST
-    *MOVE.W  #$1022, A5
-    *MOVE.W  #$2000, A6
-    MOVE.W  D4, D3
-
-    MOVE.B  D3, D5
     JMP     DECODE
     LSR.L   #2, D6     * TESTING
     LSR.W   D2, D7
     LSR.B   #7, D1
+    ADD.B   #5, D1
+    ADD.B   #$5,D2
 
     JMP TEST_JMP
     JSR (A6)
@@ -117,14 +114,15 @@ TEST_JMP
     NEG.L   D7
     ORI.B   #2, D2
 TEST_MOVE
-    MOVE.L  #$2, D2
-    MOVE.L  #$2, D2
-    MOVE.L  #$2, D2
-    MOVE.L  #$2, D2
-    MOVE.L  #$2, D2
-    MOVE.L  #$2, D2
-    MOVE.L  #$2, D2
-    MOVE.L  #$2, D2
+    *MOVE.L  $1000, D2
+    *MOVE.L  #2, D2
+    MOVE.L  A2, D2
+    MOVE.L  A2, $8000
+        *MOVE.W  #$1022, A5
+    *MOVE.W  #$2000, A6
+    MOVE.W  D4, D3
+
+    MOVE.B  D3, D5
 
 * start of disassembler
     LEA     welcomeMsg, A1      * Display welcome message
@@ -247,8 +245,10 @@ OP_JSR
     JSR     INDIRECT_ADDREG_EA_CHECK
     JSR     ABSOLUTE_WORD_EA_CHECK
     JSR     ABSOLUTE_LONG_EA_CHECK
+    
     CMP.B   #0, D6
     BEQ     OP_DATA
+    
     JSR     DISPLAY_OP
     JSR     DISPLAY_SPACE
     JSR     DISPLAY_EA
@@ -411,9 +411,6 @@ S_DIRECT_DATAREG_EA_CONFIRMED
     RTS
 
 S_DIRECT_ADDREG_EA_CONFIRMED
-    LEA     'HAHA',A1
-    MOVE    #14,D0
-    TRAP    #15
     MOVE.B  #2, D4
     RTS
 
@@ -645,9 +642,9 @@ MASK_7t0
 * + REMAINING OPCODES HERE +
 * +                        +
 * ++++++++++++++++++++++++++
-*--------------------------------
+* --------------------------------
 * check for OpCodes  MOVE in 15-12 : MOVE.B, MOVE.W, MOVE.L
-    MOVE.W D5, D3
+    MOVE.W   D5, D3
     ANDI.L  #maskExcept_15to12, D3
 
     CMP.W   #MOVE_B, D3
@@ -658,6 +655,204 @@ MASK_7t0
 
     CMP.W   #MOVE_L, D3
     BEQ     OP_MOVEL
+    
+* ---------------------------------
+* check for OpCodes ADD in 15-12: ADD, ADDA
+    MOVE.W  D5,D3
+    ANDI.L  #maskExcept_15to12, D3
+    
+    CMP.W   #ADD, D3
+    BEQ     OP_ADD_CHECK
+
+OP_ADD_CHECK
+    MOVE.W  D5,D3
+    ANDI.L  #maskExcept_8to6, D3
+    
+    CMPI.L  #EAmode_data, D3       *000
+    BEQ     OP_ADD_DES_B
+    
+    CMPI.L  #S_EAmode_address, D3      *001
+    BEQ     OP_ADD_DES_W
+    
+    CMPI.L  #S_EAmode_indirect, D3        *010
+    BEQ     OP_ADD_DES_L
+    
+    CMPI.L  #S_EAmode_direct, D3      *100
+    BEQ     OP_ADD_SRC_B
+    
+    CMPI.L  #ONEoONE, D3         *101
+    BEQ     OP_ADD_SRC_W
+    
+    CMPI.L  #ONEONEo, D3     *110
+    BEQ     OP_ADD_SRC_L
+    
+    CMPI.L  #S_EAmode_increment, D3     *011
+    BEQ     OP_ADDA_DES_W
+    
+    CMPI.L  #S_EAmode_absolute_word, D3     *111
+    BEQ     OP_ADDA_DES_L
+    
+OP_ADD_DES_B 
+    MOVE.B  #1, D7  *size is always W
+    LEA     PRINT_ADD, A1  * load OpCode to display
+    JSR     LOAD_B_SIZE
+    
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    JSR     IMMEDIATE_DATA_EA_CHECK
+    
+    CMP.B   #0, D6
+    BEQ     OP_DATA
+    MOVE.B  #4,D4
+    
+    JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
+    JSR     DISPLAY_COMMA
+    JSR     S_EA_DATAREG
+    JMP     DECODE
+OP_ADD_DES_W   
+    MOVE.B  #2, D7  *size is always W
+    LEA     PRINT_ADD, A1  * load OpCode to display
+    JSR     LOAD_W_SIZE
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    JSR     IMMEDIATE_DATA_EA_CHECK
+    CMP.B   #0, D6
+    BEQ     OP_DATA
+    JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
+    JSR     DISPLAY_COMMA
+    JSR     DISPLAY_DATAREG_11t9
+    JMP     DECODE
+OP_ADD_DES_L
+    MOVE.B  #3, D7  *size is always W
+    LEA     PRINT_ADD, A1  * load OpCode to display
+    JSR     LOAD_L_SIZE
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    JSR     IMMEDIATE_DATA_EA_CHECK
+    CMP.B   #0, D6
+    BEQ     OP_DATA
+    JSR     DISPLAY_OP
+    JSR     DISPLAY_EA
+    JSR     DISPLAY_COMMA
+    JSR     DISPLAY_DATAREG_11t9
+    JMP     DECODE
+OP_ADD_SRC_B
+    MOVE.B  #1, D7  *size is always W
+    LEA     PRINT_ADD, A1  * load OpCode to display
+    JSR     LOAD_B_SIZE
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    JSR     IMMEDIATE_DATA_EA_CHECK
+    CMP.B   #0, D6
+    BEQ     OP_DATA
+    JSR     DISPLAY_OP
+    MOVE.W  D5, -(SP)
+    JSR     DISPLAY_DATAREG_11t9
+    JSR     DISPLAY_COMMA
+    MOVE.W  (SP)+, D5
+    JSR     DISPLAY_EA
+    JMP     DECODE
+OP_ADD_SRC_W
+    MOVE.B  #2, D7  *size is always W
+    LEA     PRINT_ADD, A1  * load OpCode to display
+    JSR     LOAD_W_SIZE
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    JSR     IMMEDIATE_DATA_EA_CHECK
+    CMP.B   #0, D6
+    BEQ     OP_DATA
+    JSR     DISPLAY_OP
+    MOVE.W  D5, -(SP)
+    JSR     DISPLAY_DATAREG_11t9
+    JSR     DISPLAY_COMMA
+    MOVE.W  (SP)+, D5
+    JSR     DISPLAY_EA
+    JMP     DECODE
+OP_ADD_SRC_L
+    MOVE.B  #3, D7  *size is always W
+    LEA     PRINT_ADD, A1  * load OpCode to display
+    JSR     LOAD_L_SIZE
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    JSR     IMMEDIATE_DATA_EA_CHECK
+    CMP.B   #0, D6
+    BEQ     OP_DATA
+    JSR     DISPLAY_OP
+    MOVE.W  D5, -(SP)
+    JSR     DISPLAY_DATAREG_11t9
+    JSR     DISPLAY_COMMA
+    MOVE.W  (SP)+, D5
+    JSR     DISPLAY_EA
+    JMP     DECODE
+OP_ADDA_DES_W
+    MOVE.B  #2, D7  *size is always W
+    LEA     PRINT_ADDA, A1  * load OpCode to display
+    JSR     LOAD_W_SIZE
+    
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    JSR     IMMEDIATE_DATA_EA_CHECK
+    
+    CMP.B   #0, D6
+    BEQ     OP_DATA
+    
+    JSR     DISPLAY_OP
+    JSR     DISPLAY_DATAREG_11t9
+    JSR     DISPLAY_COMMA
+    JSR     DISPLAY_EA
+    JMP     DECODE
+OP_ADDA_DES_L
+    MOVE.B  #3, D7  *size is always W
+    LEA     PRINT_ADDA, A1  * load OpCode to display
+    JSR     LOAD_L_SIZE
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    JSR     IMMEDIATE_DATA_EA_CHECK
+    CMP.B   #0, D6
+    BEQ     OP_DATA
+    JSR     DISPLAY_OP
+    MOVE.W  D5, -(SP)
+    JSR     DISPLAY_DATAREG_11t9
+    JSR     DISPLAY_COMMA
+    MOVE.W  (SP)+, D5
+    JSR     DISPLAY_EA
+    JMP     DECODE
+    
+    
 
 
 
@@ -1114,6 +1309,31 @@ OP_MOVEL
     JSR     DISPLAY_COMMA
     JSR     S_DISPLAY_EA
     JMP     DECODE
+    
+* ---------------------------------------------------
+* operation code add or adda
+OP_ADD
+    MOVE.W  D5,D3
+    ANDI.L  #maskExcept_7to6, D3
+    ROL.W   #$2, D3
+    
+    CMPI.B  #%0011,D3
+    BEQ     OP_ADDA
+    
+     JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    JSR     IMMEDIATE_DATA_EA_CHECK
+    JSR     DIRECT_ADDREG_EA_CHECK
+    
+    
+    
+    
+
+OP_ADDA
 
 * --------------------------------------------------
 * Determine size (B, W, or L) of OpCodes whose size bits are in bit 7 and 6. Store size information in D3
@@ -1565,7 +1785,9 @@ DISPLAY_EA
     BEQ     EA_IMMEDIATE
     CMP.B   #7, D6
     BEQ     EA_ABS_WORD
-    JMP     EA_ABS_LONG
+    CMP.B   #8,D6
+    BEQ     EA_ABS_LONG
+    
 
 S_DISPLAY_EA
     CMP.B   #1, D4
@@ -1582,6 +1804,7 @@ S_DISPLAY_EA
     BEQ     S_EA_IMMEDIATE
     CMP.B   #7, D4
     BEQ     S_EA_ABS_WORD
+    CMP.B   #8, D4
     JMP     S_EA_ABS_LONG
 
 EA_DATAREG
@@ -1622,12 +1845,16 @@ EA_IMMEDIATE
     MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
-
+    
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_2to0, D7
+    
     CMP.B   #1, D7
     BEQ     DISPLAY_BYTE_IMMEDIATE_DATA
     CMP.B   #2, D7
     BEQ     DISPLAY_WORD_IMMEDIATE_DATA
-    JMP     DISPLAY_LONG_IMMEDIATE_DATA
+    CMP.B   #3, D7
+    BEQ     DISPLAY_LONG_IMMEDIATE_DATA
 
 
 DISPLAY_BYTE_IMMEDIATE_DATA
@@ -1691,6 +1918,9 @@ S_EA_DECREMENT
     JMP     DISPLAY_ADDR_DECREMENT
 
 S_EA_IMMEDIATE
+    MOVE.W  D5, D7                  * put EA register in D7
+    ANDI.W  #maskExcept_11to9, D7
+
     MOVE.B  #$23, D1    * 0x23 is hex value for '#' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
@@ -1698,12 +1928,14 @@ S_EA_IMMEDIATE
     MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
+    
     ROL.W   #$7, D7
     CMP.B   #1, D7
     BEQ     DISPLAY_BYTE_IMMEDIATE_DATA
     CMP.B   #2, D7
     BEQ     DISPLAY_WORD_IMMEDIATE_DATA
-    JMP     DISPLAY_LONG_IMMEDIATE_DATA
+    CMP.B   #3,D7
+    BEQ     DISPLAY_LONG_IMMEDIATE_DATA
 
 S_EA_ABS_WORD
     MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
@@ -1859,7 +2091,8 @@ S_EAmode_decrement        EQU     %0000000100000000
 S_EAmode_absolute_word  EQU     %0000000111000000
 S_EAmode_absolute_long  EQU     %0000001111000000
 S_EAmode_immediate      EQU     %0000100111000000
-
+ONEoONE                 EQU     %0000000101000000
+ONEONEo                 EQU     %0000000110000000
 EAmode_pc               EQU     %0000000000000010   * not implemented yet
 EAmode_pc_index         EQU     %0000000000000011   * not implemented yet
 
@@ -1899,6 +2132,7 @@ BVC             EQU     %0110100000000000   * CHECK
 MOVE_B          EQU     %0001000000000000
 MOVE_W          EQU     %0011000000000000
 MOVE_L          EQU     %0010000000000000
+ADD             EQU     %1101000000000000
 
 CMP             EQU     %1011000000000000   *CMP
 
@@ -1950,6 +2184,8 @@ PRINT_COMMA     DC.B    ', ', 0
 NEWLINE         DC.B    CR, LF, 0
 
     END    START        ; last line of source
+
+
 
 
 *~Font name~Courier New~
