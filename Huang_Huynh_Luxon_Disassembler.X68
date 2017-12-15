@@ -1,6 +1,6 @@
 * -----------------------------------------------------------
 * Title      :  Dissassembler
-* Written by :  Tien Huynh, Jeremy Luxon
+* Written by :  Tien Huynh, Jeremy Luxon and Martin
 * Date       :  12/01/2017 (v1)
 * Description:  Read in ASCII char input, convert to Hex value to use as starting & ending address
 *
@@ -32,6 +32,9 @@
 *                                               W: #2
 *                                               L: #3
 *                                    Decoded: BCLR, DIVS, MULS, LEA   
+*               12/14/2017  
+*                   + Martin Huang: Added source EA on opCode like MOVE.
+*                                   Decoded: MOVE
 * -----------------------------------------------------------
 
 
@@ -972,9 +975,11 @@ OP_LEA
     
 *---------------------------------------------------
 * Move opcode
+
 OP_MOVEB
     LEA     PRINT_MOVE, A1  * load OpCode to display
     JSR     LOAD_B_SIZE
+    
     JSR     DIRECT_DATAREG_EA_CHECK
     JSR     INDIRECT_ADDREG_EA_CHECK
     JSR     INCREMENT_ADDREG_EA_CHECK
@@ -1514,7 +1519,7 @@ DISPLAY_EA
     JMP     EA_ABS_LONG
 
 S_DISPLAY_EA
-    ROR.W   #$6, D4
+    ROR.L   #$6, D4
     CMP.B   #1, D4
     BEQ     EA_DATAREG
     CMP.B   #2, D4
