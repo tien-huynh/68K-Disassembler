@@ -35,6 +35,7 @@
 *               12/14/2017  
 *                   + Martin Huang: Added source EA on opCode like MOVE.
 *                                   Decoded: MOVE
+*                                   added desntination EA support. 
 * -----------------------------------------------------------
 
 
@@ -992,9 +993,6 @@ OP_MOVEB
     MOVE.B  #1, D7  *size is always B
     LEA     PRINT_MOVE, A1  * load OpCode to display
     JSR     LOAD_B_SIZE
-    LEA     PRINT_DATA,A1
-    MOVE.B  #14,D0
-    TRAP    #15
     
     JSR     DIRECT_DATAREG_EA_CHECK
     JSR     INDIRECT_ADDREG_EA_CHECK
@@ -1629,31 +1627,36 @@ DISPLAY_LONG_IMMEDIATE_DATA
 S_EA_DATAREG
     MOVE.W  D5, D7                  * put EA register in D7
     ANDI.W  #maskExcept_11to9, D7
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    *ADDQ.L  #2, A5          * increment address pointer, word size
+    ROL.W   #$7, D7
     JMP     DISPLAY_DATA_REGISTER
 
 S_EA_ADDREG
     MOVE.W  D5, D7                  * put EA register in D7
     ANDI.W  #maskExcept_11to9, D7
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    *ADDQ.L  #2, A5          * increment address pointer, word size
+    ROL.W   #$7, D7
     JMP     DISPLAY_ADDR_REGISTER
     
 S_EA_INDIRECT
     MOVE.W  D5, D7                  * put EA register in D7
     ANDI.W  #maskExcept_11to9, D7
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    *ADDQ.L  #2, A5          * increment address pointer, word size
+    ROL.W   #$7, D7
     JMP     DISPLAY_ADDR_INDIRECT  
 
 S_EA_INCREMENT
     MOVE.W  D5, D7                  * put EA register in D7
     ANDI.W  #maskExcept_11to9, D7
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    *ADDQ.L  #2, A5          * increment address pointer, word size
+    ROL.W   #$7, D7
     JMP     DISPLAY_ADDR_INCREMENT  
     
 S_EA_DECREMENT
     MOVE.W  D5, D7                  * put EA register in D7
     ANDI.W  #maskExcept_11to9, D7
-    ADDQ.L  #2, A5          * increment address pointer, word size
+    *ADDQ.L  #2, A5          * increment address pointer, word size
+    ROL.W   #$7, D7
     JMP     DISPLAY_ADDR_DECREMENT  
 
 S_EA_IMMEDIATE
@@ -1664,7 +1667,7 @@ S_EA_IMMEDIATE
     MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
-    
+    ROL.W   #$7, D7
     CMP.B   #1, D7
     BEQ     DISPLAY_BYTE_IMMEDIATE_DATA
     CMP.B   #2, D7
@@ -1675,7 +1678,7 @@ S_EA_ABS_WORD
     MOVE.B  #$24, D1    * 0x24 is hex value for '$' ACSII char
     MOVE.B  #6, D0
     TRAP    #15
-
+    
     ADDQ.L  #2, A5          * increment address pointer, word size
     MOVE.W  (A5), D3
     MOVE.B  #4, D4
@@ -1925,6 +1928,9 @@ NEWLINE         DC.B    CR, LF, 0
 
 =======
 >>>>>>> 26e7e9946b3c006a98c1d7b945ae3814fa894f0f
+
+
+
 
 
 
