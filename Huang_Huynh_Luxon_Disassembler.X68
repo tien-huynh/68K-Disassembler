@@ -1952,24 +1952,6 @@ NEWLINE         DC.B    CR, LF, 0
     END    START        ; last line of source
 
 
-
-
-<<<<<<< HEAD
-
-
-
-=======
->>>>>>> 26e7e9946b3c006a98c1d7b945ae3814fa894f0f
-
-
-
-
-
-
-
-
-
-
 *~Font name~Courier New~
 *~Font size~10~
 *~Tab type~1~
