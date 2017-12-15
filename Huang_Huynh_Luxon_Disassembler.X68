@@ -40,9 +40,9 @@
 START
 
 * testing code here
-    *BRA     START_INPUT
+    BRA     START_INPUT
     *JSR     START_INPUT
-    BRA.B   BRATEST
+    *BRA.B   BRATEST
     ASR.L   #2, D6     * TESTING
     ASR.W   D2, D7
     ASR.B   #7, D1
@@ -232,7 +232,8 @@ OP_JSR
     JSR     DISPLAY_EA
     JMP     DECODE     
 
-    
+*-----------------------------
+* EA for destination     
 
 IMMEDIATE_DATA_EA_CHECK
     MOVE.W  D5, D3                  * D3 as buffer for masking
@@ -321,6 +322,108 @@ ABSOLUTE_WORD_EA_CONFIRMED
 ABSOLUTE_LONG_CONFIRMED
     MOVE.B  #8, D6
     RTS
+
+*---------------------------------
+* EA for source
+
+S_IMMEDIATE_DATA_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ROR.W   #$6, D3
+    ANDI.W  #maskExcept_5to0, D3
+    CMP.W   #EAmode_immediate, D3
+    BEQ     S_IMMEDIATE_DATA_EA_CONFIRMED     
+    RTS
+
+S_ABSOLUTE_WORD_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ROR.W   #$6, D3
+    ANDI.W  #maskExcept_5to0, D3
+    CMP.W   #EAmode_absolute_word, D3
+    BEQ     S_ABSOLUTE_WORD_EA_CONFIRMED    
+    RTS
+
+S_ABSOLUTE_LONG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ROR.W   #$6, D3
+    ANDI.W  #maskExcept_5to0, D3
+    CMP.W   #EAmode_absolute_long, D3
+    BEQ     S_ABSOLUTE_LONG_CONFIRMED    
+    RTS
+    
+S_DIRECT_DATAREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ROR.W   #$6, D3
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_data, D3
+    BEQ     S_DIRECT_DATAREG_EA_CONFIRMED    
+    RTS
+
+S_DIRECT_ADDREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ROR.W   #$6, D3
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_address, D3
+    BEQ     S_DIRECT_ADDREG_EA_CONFIRMED    
+    RTS    
+
+S_INDIRECT_ADDREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ROR.W   #$6, D3
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_indirect, D3
+    BEQ     S_INDIRECT_ADDREG_EA_CONFIRMED  
+    RTS
+
+S_INCREMENT_ADDREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ROR.W   #$6, D3
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_increment, D3
+    BEQ     S_INCREMENT_ADDREG_EA_CONFIRMED
+    RTS
+    
+S_DECREMENT_ADDREG_EA_CHECK
+    MOVE.W  D5, D3                  * D3 as buffer for masking
+    ROR.W   #$6, D3
+    ANDI.W  #maskExcept_5to3, D3
+    CMP.W   #EAmode_decrement, D3
+    BEQ     S_DECREMENT_ADDREG_EA_CONFIRMED
+    RTS
+ 
+*-------------------------
+* store source EA mode in D4 buffer   
+S_DIRECT_DATAREG_EA_CONFIRMED
+    MOVE.B  #1, D4
+    RTS
+    
+S_DIRECT_ADDREG_EA_CONFIRMED
+    MOVE.B  #2, D4
+    RTS
+
+S_INDIRECT_ADDREG_EA_CONFIRMED
+    MOVE.B  #3, D4
+    RTS
+
+S_INCREMENT_ADDREG_EA_CONFIRMED
+    MOVE.B  #4, D4
+    RTS
+    
+S_DECREMENT_ADDREG_EA_CONFIRMED
+    MOVE.B  #5, D4
+    RTS    
+
+S_IMMEDIATE_DATA_EA_CONFIRMED
+    MOVE.B  #6, D4
+    RTS
+    
+S_ABSOLUTE_WORD_EA_CONFIRMED
+    MOVE.B  #7, D4
+    RTS
+
+S_ABSOLUTE_LONG_CONFIRMED
+    MOVE.B  #8, D4
+    RTS
+
 
 
 OP_BCLR_IMMEDIATE
@@ -519,8 +622,22 @@ MASK_7t0
 * + REMAINING OPCODES HERE +
 * +                        +
 * ++++++++++++++++++++++++++
-
-
+*--------------------------------
+* check for OpCodes  MOVE in 15-12 : MOVE.B, MOVE.W, MOVE.L
+    MOVE.W D5, D3
+    ANDI.L  #maskExcept_15to12, D3
+    
+    CMP.W   #MOVE_B, D3
+    BEQ     OP_MOVEB
+    
+    CMP.W   #MOVE_W, D3
+    BEQ     OP_MOVEW
+    
+    CMP.W   #MOVE_L, D3
+    BEQ     OP_MOVEL
+    
+    
+    
 * -------------------------------
 * DATA: Unknown OpCode or random data
 OP_DATA
@@ -850,6 +967,105 @@ OP_LEA
     JSR     DISPLAY_COMMA
     MOVE.W  (SP)+, D5
     JSR     DISPLAY_ADDREG_11t9   
+    JMP     DECODE
+    
+    
+*---------------------------------------------------
+* Move opcode
+OP_MOVEB
+    LEA     PRINT_MOVE, A1  * load OpCode to display
+    JSR     LOAD_B_SIZE
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    
+    CLR.L   D4
+    JSR     S_IMMEDIATE_DATA_EA_CHECK
+    JSR     S_DIRECT_DATAREG_EA_CHECK
+    JSR     S_DIRECT_ADDREG_EA_CHECK
+    JSR     S_INDIRECT_ADDREG_EA_CHECK
+    JSR     S_INCREMENT_ADDREG_EA_CHECK
+    JSR     S_DECREMENT_ADDREG_EA_CHECK
+    JSR     S_ABSOLUTE_WORD_EA_CHECK
+    JSR     S_ABSOLUTE_LONG_EA_CHECK
+
+    CMP.B   #0, D6          * check destination EA
+    BEQ     OP_DATA
+    
+    CMP.B   #0, D4          * check source EA
+    BEQ     OP_DATA
+    
+    JSR     DISPLAY_OP
+    JSR     S_DISPLAY_EA
+    JSR     DISPLAY_COMMA   
+    JSR     DISPLAY_EA   
+    JMP     DECODE
+
+OP_MOVEW
+    LEA     PRINT_MOVE, A1  * load OpCode to display
+    JSR     LOAD_W_SIZE
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    
+    CLR.L   D4
+    JSR     S_IMMEDIATE_DATA_EA_CHECK
+    JSR     S_DIRECT_DATAREG_EA_CHECK
+    JSR     S_DIRECT_ADDREG_EA_CHECK
+    JSR     S_INDIRECT_ADDREG_EA_CHECK
+    JSR     S_INCREMENT_ADDREG_EA_CHECK
+    JSR     S_DECREMENT_ADDREG_EA_CHECK
+    JSR     S_ABSOLUTE_WORD_EA_CHECK
+    JSR     S_ABSOLUTE_LONG_EA_CHECK
+
+    CMP.B   #0, D6          * check destination EA
+    BEQ     OP_DATA
+    
+    CMP.B   #0, D4          * check source EA
+    BEQ     OP_DATA
+    
+    JSR     DISPLAY_OP
+    JSR     S_DISPLAY_EA
+    JSR     DISPLAY_COMMA   
+    JSR     DISPLAY_EA   
+    JMP     DECODE
+
+OP_MOVEL
+    LEA     PRINT_MOVE, A1  * load OpCode to display
+    JSR     LOAD_L_SIZE
+    JSR     DIRECT_DATAREG_EA_CHECK
+    JSR     INDIRECT_ADDREG_EA_CHECK
+    JSR     INCREMENT_ADDREG_EA_CHECK
+    JSR     DECREMENT_ADDREG_EA_CHECK
+    JSR     ABSOLUTE_WORD_EA_CHECK
+    JSR     ABSOLUTE_LONG_EA_CHECK
+    
+    CLR.L   D4
+    JSR     S_IMMEDIATE_DATA_EA_CHECK
+    JSR     S_DIRECT_DATAREG_EA_CHECK
+    JSR     S_DIRECT_ADDREG_EA_CHECK
+    JSR     S_INDIRECT_ADDREG_EA_CHECK
+    JSR     S_INCREMENT_ADDREG_EA_CHECK
+    JSR     S_DECREMENT_ADDREG_EA_CHECK
+    JSR     S_ABSOLUTE_WORD_EA_CHECK
+    JSR     S_ABSOLUTE_LONG_EA_CHECK
+
+    CMP.B   #0, D6          * check destination EA
+    BEQ     OP_DATA
+    
+    CMP.B   #0, D4          * check source EA
+    BEQ     OP_DATA
+    
+    JSR     DISPLAY_OP
+    JSR     S_DISPLAY_EA
+    JSR     DISPLAY_COMMA   
+    JSR     DISPLAY_EA   
     JMP     DECODE
 
 * --------------------------------------------------
@@ -1296,6 +1512,24 @@ DISPLAY_EA
     CMP.B   #7, D6
     BEQ     EA_ABS_WORD
     JMP     EA_ABS_LONG
+
+S_DISPLAY_EA
+    ROR.W   #$6, D4
+    CMP.B   #1, D4
+    BEQ     EA_DATAREG
+    CMP.B   #2, D4
+    BEQ     EA_ADDREG
+    CMP.B   #3, D4
+    BEQ     EA_INDIRECT
+    CMP.B   #4, D4
+    BEQ     EA_INCREMENT
+    CMP.B   #5, D4
+    BEQ     EA_DECREMENT
+    CMP.B   #6, D4
+    BEQ     EA_IMMEDIATE
+    CMP.B   #7, D4
+    BEQ     EA_ABS_WORD
+    JMP     EA_ABS_LONG
     
 EA_DATAREG
     MOVE.W  D5, D7                  * put EA register in D7
@@ -1428,6 +1662,7 @@ maskExcept_11to9            EQU       %0000111000000000
 maskExcept_2to0             EQU       %0000000000000111
 maskExcept_5to3             EQU       %0000000000111000
 maskExcept_5to0             EQU       %0000000000111111
+maskExcept_15to12           EQU       %1111000000000000
 
 sizeB_7to6          EQU     %0000000000000000
 sizeW_7to6          EQU     %0000000001000000
@@ -1494,6 +1729,10 @@ BGE             EQU     %0110110000000000   * CHECK
 BLT             EQU     %0110110100000000   * CHECK
 BVC             EQU     %0110100000000000   * CHECK
 
+MOVE_B          EQU     %0001000000000000   
+MOVE_W          EQU     %0011000000000000
+MOVE_L          EQU     %0010000000000000
+
 CMP             EQU     %1011000000000000   *CMP
 
 
@@ -1550,6 +1789,7 @@ NEWLINE         DC.B    CR, LF, 0
 
 =======
 >>>>>>> 26e7e9946b3c006a98c1d7b945ae3814fa894f0f
+
 
 
 
